@@ -1,0 +1,20 @@
+name: hermes-certification-assistant
+version: 1.0.0
+description: "Ассистент для сертификационной тестовой документации ФСТЭК (приказ № 76) на веб-СЗИ: E2E-прогоны по функциям безопасности, отчёт .docx со свидетельствами, сводка .md"
+hermes_requires: ">=0.12.0"
+author: "amaryan"
+license: "MIT"
+
+# Ключи, которые нужны получателю. Установщик сверит их с окружением и .env
+# и сгенерирует .env.EXAMPLE.
+env_requires:
+  - name: DEEPSEEK_API_KEY
+    description: "API-ключ DeepSeek — модель по умолчанию deepseek-flash"
+    required: true
+
+# При `hermes profile update` эти пути заменяются из репозитория (поштучно для skills/).
+distribution_owned:
+  - SOUL.md
+  - config.yaml
+  - distribution.yaml
+  - skills/
