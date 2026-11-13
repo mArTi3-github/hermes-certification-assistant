@@ -1,8 +1,14 @@
 #!/usr/bin/env python3
-"""Политика публикации скиллов: что уходит в GitHub, а что остаётся локальным.
+"""Политика публикации скиллов.
 
-Источник истины — `publish.list` в корне репозитория. Модуль без внешних зависимостей,
-поэтому одинаково работает и локально, и в CI.
+Правила (в порядке приоритета):
+1. `[private]` — скилл никогда не публикуется, что бы ни говорила категория.
+2. `[publish]` — публикуется, даже если его категория не в списке по умолчанию.
+3. `[defaults] publish_categories` — категории, все скиллы которых публикуются по умолчанию.
+4. Всё остальное — локально: в репозиторий не попадает и коллегам не уезжает.
+
+Источник истины — `publish.list` в корне репозитория; модуль без внешних зависимостей,
+поэтому одинаково работает локально и в CI.
 """
 from __future__ import annotations
 
@@ -13,15 +19,16 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parent.parent
 POLICY = ROOT / "publish.list"
 SKILLS = ROOT / "skills"
-SECTIONS = ("publish", "private")
+SECTIONS = ("defaults", "publish", "private")
 
 
-def load(path: Path = POLICY) -> dict[str, list[str]]:
-    """Разбирает publish.list в {'publish': [...], 'private': [...]}."""
-    result: dict[str, list[str]] = {name: [] for name in SECTIONS}
+def load(path: Path = POLICY) -> dict[str, object]:
+    """Разбирает publish.list: категории по умолчанию и явные списки."""
+    result: dict[str, object] = {"publish_categories": [], "publish": [], "private": []}
     section: str | None = None
     if not path.exists():
         return result
+
     for raw in path.read_text(encoding="utf-8").splitlines():
         line = raw.strip()
         if not line or line.startswith("#"):
@@ -32,48 +39,101 @@ def load(path: Path = POLICY) -> dict[str, list[str]]:
             continue
         if section is None:
             continue
-        item = line.split("#", 1)[0].strip().rstrip("/")
-        if item:
-            result[section].append(item)
+        item = line.split("#", 1)[0].strip()
+        if not item:
+            continue
+
+        if section == "defaults":
+            key, sep, value = item.partition(":")
+            if sep and key.strip() == "publish_categories":
+                parts = [part.strip().rstrip("/") for part in value.replace(",", " ").split()]
+                result["publish_categories"] = [part for part in parts if part]
+            continue
+
+        result[section].append(item.rstrip("/"))  # type: ignore[index]
     return result
 
 
-def published(path: Path = POLICY) -> set[str]:
-    return set(load(path)["publish"])
+def publish_categories(path: Path = POLICY) -> set[str]:
+    return set(load(path)["publish_categories"])  # type: ignore[arg-type]
 
 
-def private(path: Path = POLICY) -> set[str]:
-    return set(load(path)["private"])
+def explicit_publish(path: Path = POLICY) -> set[str]:
+    return set(load(path)["publish"])  # type: ignore[arg-type]
 
 
-def repo_skills() -> set[str]:
-    return {path.parent.relative_to(SKILLS).as_posix() for path in SKILLS.glob("*/*/SKILL.md")}
+def explicit_private(path: Path = POLICY) -> set[str]:
+    return set(load(path)["private"])  # type: ignore[arg-type]
 
 
-def include(skill: str, path: Path = POLICY) -> None:
-    """Добавляет скилл в раздел [publish], сохраняя структуру файла."""
-    skill = skill.strip().rstrip("/")
-    lines = path.read_text(encoding="utf-8").splitlines() if path.exists() else ["[publish]", "", "[private]"]
-    if skill in {line.split("#", 1)[0].strip().rstrip("/") for line in lines}:
+def scan(root: Path) -> set[str]:
+    """Скиллы в каталоге вида <root>/<категория>/<имя>/SKILL.md."""
+    if not root.is_dir():
+        return set()
+    return {path.parent.relative_to(root).as_posix() for path in root.glob("*/*/SKILL.md")}
+
+
+def classify(skills: set[str], path: Path = POLICY) -> dict[str, set[str]]:
+    """Делит набор скиллов на публикуемые, локальные и неклассифицированные."""
+    categories = publish_categories(path)
+    published_explicit = explicit_publish(path)
+    private_explicit = explicit_private(path)
+
+    published = {
+        skill for skill in skills
+        if skill in published_explicit or skill.split("/", 1)[0] in categories
+    }
+    published -= private_explicit
+
+    local = skills - published
+    return {
+        "published": published,
+        "local": local,
+        "private": local & private_explicit,
+        "unclassified": local - private_explicit,
+    }
+
+
+def _append(section: str, item: str, path: Path = POLICY) -> None:
+    """Дописывает строку в раздел, сохраняя структуру файла."""
+    item = item.strip().rstrip("/")
+    lines = path.read_text(encoding="utf-8").splitlines() if path.exists() else []
+    if not lines:
+        lines = ["[defaults]", "publish_categories: certification", "", "[publish]", "", "[private]"]
+    if item in {line.split("#", 1)[0].strip().rstrip("/") for line in lines}:
         return
-    try:
-        start = next(i for i, line in enumerate(lines) if line.strip() == "[publish]")
-    except StopIteration:
-        lines = ["[publish]", ""] + lines
-        start = 0
+
+    header = f"[{section}]"
+    if header not in [line.strip() for line in lines]:
+        lines += ["", header]
+    start = next(i for i, line in enumerate(lines) if line.strip() == header)
+
     insert_at = start + 1
     while insert_at < len(lines) and (not lines[insert_at].strip() or lines[insert_at].lstrip().startswith("#")):
         insert_at += 1
     while insert_at < len(lines) and lines[insert_at].strip() and not lines[insert_at].startswith("["):
         insert_at += 1
-    lines.insert(insert_at, skill)
+
+    lines.insert(insert_at, item)
+    path.write_text("\n".join(lines) + "\n", encoding="utf-8")
+
+
+def _drop(item: str, path: Path = POLICY) -> None:
+    """Убирает строку из всех разделов."""
+    item = item.strip().rstrip("/")
+    if not path.exists():
+        return
+    lines = [
+        line for line in path.read_text(encoding="utf-8").splitlines()
+        if line.split("#", 1)[0].strip().rstrip("/") != item
+    ]
     path.write_text("\n".join(lines) + "\n", encoding="utf-8")
 
 
 def profile_authored(profile: Path) -> tuple[set[str], set[str]]:
     """Авторские (не bundled) скиллы профиля и множество имён bundled."""
     manifest_file = profile / "skills" / ".bundled_manifest"
-    bundled = set()
+    bundled: set[str] = set()
     if manifest_file.exists():
         for line in manifest_file.read_text(encoding="utf-8", errors="replace").splitlines():
             if ":" in line:
@@ -88,69 +148,88 @@ def profile_authored(profile: Path) -> tuple[set[str], set[str]]:
 
 def status(profile: Path | None) -> int:
     policy = load()
-    pub, priv = set(policy["publish"]), set(policy["private"])
+    categories = set(policy["publish_categories"])  # type: ignore[arg-type]
+    explicit_pub = set(policy["publish"])  # type: ignore[arg-type]
+    explicit_priv = set(policy["private"])  # type: ignore[arg-type]
     problems = 0
 
     print("▪ Политика (publish.list):")
-    print(f"    в публикацию: {len(pub)} | только локально: {len(priv)}")
-    for item in sorted(pub & priv):
+    print(f"    категории по умолчанию: {', '.join(sorted(categories)) or '—'}")
+    print(f"    явные исключения: публикуется {len(explicit_pub)}, приватно {len(explicit_priv)}")
+    for item in sorted(explicit_pub & explicit_priv):
         print(f"    ✗ {item}: одновременно в [publish] и [private]")
         problems += 1
+    for item in sorted(explicit_pub):
+        if item.split("/", 1)[0] in categories:
+            print(f"    · {item}: в [publish], хотя категория и так публикуется — строка лишняя")
 
-    in_repo = repo_skills()
+    in_repo = scan(SKILLS)
+    repo_state = classify(in_repo)
     print(f"▪ Скиллы в репозитории: {len(in_repo)}")
-    for item in sorted(in_repo - pub):
-        print(f"    ✗ {item}: лежит в репозитории, но не в [publish]")
-        problems += 1
-    for item in sorted(pub - in_repo):
-        print(f"    ✗ {item}: указан в [publish], но в репозитории отсутствует")
+    for item in sorted(in_repo - repo_state["published"]):
+        print(f"    ✗ {item}: лежит в репозитории, но политикой не публикуется")
         problems += 1
 
     if profile and (profile / "skills").is_dir():
         authored, bundled = profile_authored(profile)
+        state = classify(authored)
         print(f"▪ Профиль {profile.name}: авторских {len(authored)}, штатных {len(bundled)}")
-        unclassified = authored - pub - priv
-        for item in sorted(authored & pub):
+        for item in sorted(state["published"]):
             print(f"    публикуется:      {item}")
-        for item in sorted(authored & priv):
+        for item in sorted(state["private"]):
             print(f"    только локально:  {item}")
-        for item in sorted(unclassified):
-            print(f"    ⚠ не классифицирован: {item} — строка в publish.list отсутствует")
+        for item in sorted(state["unclassified"]):
+            print(f"    ⚠ не классифицирован: {item} — решите: certify / local")
     return 1 if problems else 0
 
 
 def main() -> int:
     parser = argparse.ArgumentParser(description="Политика публикации скиллов")
-    parser.add_argument("--published", action="store_true", help="напечатать пути из [publish]")
-    parser.add_argument("--private", action="store_true", help="напечатать пути из [private]")
+    parser.add_argument("--published", action="store_true", help="напечатать публикуемые скиллы")
+    parser.add_argument("--private", action="store_true", help="напечатать явно приватные")
+    parser.add_argument("--unclassified", action="store_true", help="напечатать скиллы вне политики")
     parser.add_argument("--include", metavar="СКИЛЛ", help="добавить скилл в [publish]")
-    parser.add_argument("--profile", metavar="КАТАЛОГ", help="каталог профиля для --status/--unclassified")
+    parser.add_argument("--classify", nargs=2, metavar=("СКИЛЛ", "publish|private"),
+                        help="зафиксировать решение по скиллу")
+    parser.add_argument("--profile", metavar="КАТАЛОГ", help="каталог профиля для сканирования")
     parser.add_argument("--status", action="store_true", help="сверить политику, репозиторий и профиль")
-    parser.add_argument("--unclassified", action="store_true",
-                        help="напечатать авторские скиллы профиля вне политики (нужен --profile)")
     args = parser.parse_args()
 
+    profile = Path(args.profile).expanduser() if args.profile else None
+    skills = scan(profile / "skills") if profile else scan(SKILLS)
+    state = classify(skills)
+
     if args.published:
-        for item in load()["publish"]:
+        for item in sorted(state["published"]):
             print(item)
         return 0
     if args.private:
-        for item in load()["private"]:
+        for item in sorted(explicit_private()):
+            print(item)
+        return 0
+    if args.unclassified:
+        for item in sorted(state["unclassified"]):
             print(item)
         return 0
     if args.include:
-        include(args.include)
+        _append("publish", args.include)
         print(f"добавлено в [publish]: {args.include}")
         return 0
-    if args.unclassified:
-        if not args.profile:
-            print("нужен --profile", file=sys.stderr)
+    if args.classify:
+        skill, decision = args.classify
+        if decision == "private":
+            _drop(skill)
+            _append("private", skill)
+            print(f"{skill}: локально (добавлено в [private])")
+        elif decision == "publish":
+            _drop(skill)
+            _append("publish", skill)
+            print(f"{skill}: публикуется (добавлено в [publish])")
+        else:
+            print("решение должно быть publish или private", file=sys.stderr)
             return 2
-        authored, _ = profile_authored(Path(args.profile).expanduser())
-        for item in sorted(authored - published() - private()):
-            print(item)
         return 0
-    return status(Path(args.profile).expanduser() if args.profile else None)
+    return status(profile)
 
 
 if __name__ == "__main__":

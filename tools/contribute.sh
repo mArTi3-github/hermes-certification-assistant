@@ -91,14 +91,59 @@ while IFS= read -r rel; do
   else
     say "  · $rel — в профиле отсутствует, в репозитории остаётся текущая версия"
   fi
-done < <(python3 "$REPO_DIR/tools/publish_policy.py" --published)
+done < <(python3 "$REPO_DIR/tools/publish_policy.py" --published --profile "$PROFILE_DIR")
 
 UNCLASSIFIED="$(python3 "$REPO_DIR/tools/publish_policy.py" --profile "$PROFILE_DIR" --unclassified 2>/dev/null || true)"
 if [ -n "$UNCLASSIFIED" ]; then
   say ""
-  say "⚠ авторские скиллы вне политики (остаются локально):"
+  say "⚠ скиллы вне политики публикации:"
   printf '%s\n' "$UNCLASSIFIED" | sed 's/^/    /'
-  say "  чтобы опубликовать: tools/publish_policy.py --include <категория/имя>, затем повторить"
+
+  if [ -t 0 ] && [ -r /dev/tty ]; then
+    say ""
+    say "  [c] — сертификационный: перенести в certification/ и опубликовать"
+    say "  [l] — оставить локально (записать в [private])"
+    say "  [Enter] — пропустить, решить позже"
+    while IFS= read -r rel; do
+      [ -n "$rel" ] || continue
+      name="${rel##*/}"
+      printf '  %s → [c/l/Enter]: ' "$rel"
+      answer=""
+      read -r answer < /dev/tty || answer=""
+      case "${answer:-}" in
+        c|C|с|С)
+          mkdir -p "$PROFILE_DIR/skills/certification"
+          target="$name"
+          case "$name" in
+            certification-*) ;;
+            *) target="certification-$name" ;;
+          esac
+          if [ -e "$PROFILE_DIR/skills/certification/$target" ]; then
+            say "    ✖ certification/$target уже существует — пропущено"
+            continue
+          fi
+          mv "$PROFILE_DIR/skills/$rel" "$PROFILE_DIR/skills/certification/$target"
+          if [ "$target" != "$name" ]; then
+            sed -i -E "s/^name:[[:space:]]*.*/name: $target/" "$PROFILE_DIR/skills/certification/$target/SKILL.md"
+            say "    ▸ переименовано в $target (в категории certification префикс обязателен)"
+          fi
+          copy_tree "$PROFILE_DIR/skills/certification/$target" "$REPO_DIR/skills/certification/$target"
+          say "    ▸ перенесено в certification/$target и добавлено в публикацию"
+          SYNCED=$((SYNCED + 1))
+          ;;
+        l|L|л|Л)
+          python3 "$REPO_DIR/tools/publish_policy.py" --classify "$rel" private >/dev/null
+          say "    ▸ отмечено локальным ([private])"
+          ;;
+        *)
+          say "    · пропущено: останется вне политики, пока не решите"
+          ;;
+      esac
+    done <<< "$UNCLASSIFIED"
+  else
+    say "  неинтерактивный режим: спросите пользователя, затем"
+    say "  tools/publish_policy.py --classify <категория/имя> publish|private"
+  fi
 fi
 
 [ "$SYNCED" -gt 0 ] || die "нечего публиковать: в профиле нет изменённых скиллов"

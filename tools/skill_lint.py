@@ -219,24 +219,35 @@ def check_history(report: Report) -> None:
 
 
 def check_policy(report: Report) -> None:
-    """Сверяет содержимое репозитория с publish.list."""
-    policy = publish_policy.load()
-    published, private = set(policy["publish"]), set(policy["private"])
+    """Сверяет содержимое репозитория с publish.list и правилами категорий."""
+    in_repo = {path.parent.relative_to(SKILLS).as_posix() for path in SKILLS.glob("*/*/SKILL.md")}
+    state = publish_policy.classify(in_repo)
 
-    for item in sorted(published & private):
+    for item in sorted(in_repo - state["published"]):
+        report.error(
+            f"skills/{item}",
+            "скилл лежит в репозитории, но политика публикации его не включает (publish.list)",
+        )
+
+    for item in sorted(publish_policy.explicit_publish() & publish_policy.explicit_private()):
         report.error("publish.list", f"{item}: одновременно в [publish] и [private]")
 
-    in_repo = {path.parent.relative_to(SKILLS).as_posix() for path in SKILLS.glob("*/*/SKILL.md")}
-    for item in sorted(in_repo - published):
-        report.error(
-            f"skills/{item}",
-            "скилл лежит в репозитории, но не указан в [publish] файла publish.list",
-        )
-    for item in sorted(published - in_repo):
-        report.error(
-            f"skills/{item}",
-            "указан в [publish], но в репозитории отсутствует — публикация неполная",
-        )
+    absent = publish_policy.explicit_publish() - in_repo
+    for item in sorted(absent):
+        report.warn("publish.list", f"{item}: указан в [publish], но в репозитории отсутствует")
+
+    for item in sorted(in_repo):
+        category, name = item.split("/", 1)
+        if category == "certification" and not name.startswith("certification-"):
+            report.error(
+                f"skills/{item}",
+                "в категории certification имя скилла должно начинаться с 'certification-'",
+            )
+        if name.startswith("certification-") and category != "certification":
+            report.error(
+                f"skills/{item}",
+                "имя с префиксом 'certification-' допустимо только в категории certification",
+            )
 
 
 def main() -> int:

@@ -1,24 +1,25 @@
 # Какие скиллы профиля публикуются в этот репозиторий.
 #
-# Формат: пути относительно skills/, по одному в строке.
-#   [publish] — уходит в GitHub и приезжает коллегам через `hermes profile update` / `tools/sync.sh`
-#   [private] — остаётся только в профиле владельца и в репозиторий не попадает
+# Приоритет правил:
+#   1. [private]   — никогда не публикуется.
+#   2. [publish]   — публикуется, даже если категория не в списке по умолчанию.
+#   3. [defaults]  — категории, все скиллы которых публикуются по умолчанию.
+#   4. Всё остальное — локально: в GitHub не уходит и коллегам не приезжает.
 #
-# Всё, что не перечислено ни в одном разделе, считается неклассифицированным:
-#   • CI падает, если такой скилл уже лежит в репозитории (значит, его протащили мимо политики);
-#   • `tools/contribute.sh` подсказывает добавить строку, но сам ничего не публикует.
-#
-# Штатные скиллы Hermes (bundled) здесь не указываются: они приезжают сами при первом запуске.
+# Штатные скиллы Hermes (bundled) здесь не упоминаются: они приезжают сами.
 
+[defaults]
+publish_categories: certification
+
+# Явные исключения: общие инструменты, которые команда получает вместе с профилем.
 [publish]
 autonomous-ai-agents/hermes-agent
 productivity/docx
-security/certification-dist-fuzz-report-check
-security/certification-stand-ftest
 security/cve-sbom-vex-mapping
 software-development/codeql-cli
 software-development/profile-contribution
 software-development/sast-cpp-without-build
 
+# Явно локальные: не публикуются, даже если попадут в публикуемую категорию.
 [private]
 security/attack-surface-analysis
