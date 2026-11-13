@@ -11,14 +11,11 @@
 [defaults]
 publish_categories: certification
 
-# Явные исключения: общие инструменты, которые команда получает вместе с профилем.
+# Явные исключения: публикуются, хотя их категория не в списке по умолчанию.
 [publish]
 autonomous-ai-agents/hermes-agent
 productivity/docx
-security/cve-sbom-vex-mapping
-software-development/codeql-cli
 software-development/profile-contribution
-software-development/sast-cpp-without-build
 
 # Явно локальные: не публикуются, даже если попадут в публикуемую категорию.
 [private]

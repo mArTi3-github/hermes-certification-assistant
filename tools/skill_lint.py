@@ -103,7 +103,7 @@ def parse_frontmatter(text: str) -> dict[str, str]:
 
 
 def check_skills(report: Report) -> int:
-    skill_files = sorted(SKILLS.glob("*/*/SKILL.md"))
+    skill_files = sorted(SKILLS.rglob("SKILL.md"))
     if not skill_files:
         report.error("skills/", "не найдено ни одного скилла по маске skills/<категория>/<имя>/SKILL.md")
         return 0
@@ -220,7 +220,7 @@ def check_history(report: Report) -> None:
 
 def check_policy(report: Report) -> None:
     """Сверяет содержимое репозитория с publish.list и правилами категорий."""
-    in_repo = {path.parent.relative_to(SKILLS).as_posix() for path in SKILLS.glob("*/*/SKILL.md")}
+    in_repo = {path.parent.relative_to(SKILLS).as_posix() for path in SKILLS.rglob("SKILL.md")}
     state = publish_policy.classify(in_repo)
 
     for item in sorted(in_repo - state["published"]):
@@ -235,19 +235,6 @@ def check_policy(report: Report) -> None:
     absent = publish_policy.explicit_publish() - in_repo
     for item in sorted(absent):
         report.warn("publish.list", f"{item}: указан в [publish], но в репозитории отсутствует")
-
-    for item in sorted(in_repo):
-        category, name = item.split("/", 1)
-        if category == "certification" and not name.startswith("certification-"):
-            report.error(
-                f"skills/{item}",
-                "в категории certification имя скилла должно начинаться с 'certification-'",
-            )
-        if name.startswith("certification-") and category != "certification":
-            report.error(
-                f"skills/{item}",
-                "имя с префиксом 'certification-' допустимо только в категории certification",
-            )
 
 
 def main() -> int:

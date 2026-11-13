@@ -70,7 +70,7 @@ def scan(root: Path) -> set[str]:
     """Скиллы в каталоге вида <root>/<категория>/<имя>/SKILL.md."""
     if not root.is_dir():
         return set()
-    return {path.parent.relative_to(root).as_posix() for path in root.glob("*/*/SKILL.md")}
+    return {path.parent.relative_to(root).as_posix() for path in root.rglob("SKILL.md")}
 
 
 def classify(skills: set[str], path: Path = POLICY) -> dict[str, set[str]]:
@@ -140,7 +140,7 @@ def profile_authored(profile: Path) -> tuple[set[str], set[str]]:
                 bundled.add(line.split(":", 1)[0])
     authored = {
         path.parent.relative_to(profile / "skills").as_posix()
-        for path in (profile / "skills").glob("*/*/SKILL.md")
+        for path in (profile / "skills").rglob("SKILL.md")
         if path.parent.name not in bundled
     }
     return authored, bundled

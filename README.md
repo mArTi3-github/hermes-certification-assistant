@@ -82,11 +82,17 @@ security/attack-surface-analysis
    новый `skills/certification/*` уходит в репозиторий без единой команды.
 4. Всё остальное — **локально**: в GitHub не попадает и коллегам не приезжает.
 
-Соглашение об именах проверяет линт и CI:
+Раскладка каталогов и есть основное правило:
 
-- в категории `certification` имя обязано начинаться с `certification-`;
-- префикс `certification-` за пределами этой категории запрещён;
-- `security/` остаётся за общими AppSec-инструментами (сопоставление CVE/SBOM/VEX, CodeQL, SAST).
+```text
+skills/certification/                 процедуры сертификации — публикуются
+skills/certification/tools/           служебные скиллы команды — тоже публикуются
+skills/<любая другая категория>/      локально, если не указано явно в [publish]
+```
+
+Имена внутри `certification/` свободные: префикс `certification-` сложился исторически, но правилом
+не является и линтом не проверяется. Единственное требование — `name` во фронтматтере совпадает
+с именем каталога.
 
 Что делает механизм в нужный момент:
 
@@ -135,10 +141,10 @@ security/attack-surface-analysis
 | Скилл | Зачем |
 |---|---|
 | `certification/certification-stand-ftest` | методика тестовой документации по приказу № 76: разделы, функции безопасности, структура отчёта, сбор свидетельств |
-| `security/cve-sbom-vex-mapping` | сопоставление списков CVE с таблицами SBOM/VEX |
+| `certification/tools/cve-sbom-vex-mapping` | сопоставление списков CVE с таблицами SBOM/VEX |
 | `certification/certification-dist-fuzz-report-check` | проверка материалов фаззинг-тестирования по Методике ВУ: отчёт и разбор артефактов AFL |
-| `software-development/codeql-cli` | установка, проверка и запуск CodeQL CLI |
-| `software-development/sast-cpp-without-build` | SAST для C/C++ репозиториев без сборки (Semgrep, cppcheck) |
+| `certification/tools/codeql-cli` | установка, проверка и запуск CodeQL CLI |
+| `certification/tools/sast-cpp-without-build` | SAST для C/C++ репозиториев без сборки (Semgrep, cppcheck) |
 | `software-development/profile-contribution` | регламент совместной модернизации профиля: PR, ревью, синхронизация |
 | `productivity/docx` | работа с `.docx`; **отличается от стокового** — добавлен `scripts/docx_read_ordered.py` (чтение в порядке документа) |
 | `autonomous-ai-agents/hermes-agent` | работа с самим Hermes; **отличается от стокового** — расширенный набор reference-файлов |
