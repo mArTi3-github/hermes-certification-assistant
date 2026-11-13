@@ -81,14 +81,3 @@ hermes profile create colleague2 --clone-from fstek-agent
   screenshots cannot overwrite each other.
 - Serialise heavy runs: one browser-driven session at a time on a 4-core host,
   even when everything else is isolated.
-
-## The trap that has nothing to do with Hermes
-
-When the work targets a shared mutable environment (test stand, staging
-cluster), parallel testing corrupts the *results*, not just the tooling: audit
-log checks see other people's events, account-management steps change the
-accounts a colleague is testing, lockout counters trip under someone else's
-attempts. Evidence collected that way is not reproducible and will not survive
-review. Either give each tester their own instance or put the runs in a queue
-(kanban, or simply a schedule) — isolation of agents does not buy isolation of
-the system under test.
