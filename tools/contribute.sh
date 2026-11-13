@@ -6,14 +6,16 @@
 #   tools/contribute.sh -i security/my-new-skill -m "новый скилл: ..."
 #
 # Переменные окружения:
-#   PROFILE_DIR  — каталог профиля (по умолчанию $HERMES_HOME или профиль по умолчанию)
+#   REPO_DIR     — клон репозитория (по умолчанию — каталог, где лежит этот скрипт)
+#   PROFILE_DIR  — каталог профиля (по умолчанию $HERMES_HOME или активный профиль)
 #   OWNER_REPO   — owner/repo на GitHub
 #   GITHUB_TOKEN — PAT для авто-создания PR (необязательно; можно положить в ~/.hermes/.env)
 set -euo pipefail
 
-REPO_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
+REPO_DIR="${REPO_DIR:-$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)}"
 OWNER_REPO="${OWNER_REPO:-mArTi3-github/hermes-certification-assistant}"
-PROFILE_DIR="${PROFILE_DIR:-${HERMES_HOME:-$HOME/.hermes/profiles/hermes-certification-assistant}}"
+ACTIVE_PROFILE="$(cat "$HOME/.hermes/active_profile" 2>/dev/null || echo hermes-certification-assistant)"
+PROFILE_DIR="${PROFILE_DIR:-${HERMES_HOME:-$HOME/.hermes/profiles/$ACTIVE_PROFILE}}"
 BRANCH_PREFIX="${BRANCH_PREFIX:-contrib}"
 MESSAGE=""
 BRANCH=""
