@@ -40,8 +40,16 @@ done
 [ -d "$PROFILE_DIR/skills" ] || die "не найден профиль: $PROFILE_DIR"
 git -C "$REPO_DIR" rev-parse --git-dir >/dev/null 2>&1 || die "не git-репозиторий: $REPO_DIR"
 
-if [ -z "${GITHUB_TOKEN:-}" ] && [ -f "$HOME/.hermes/.env" ]; then
-  GITHUB_TOKEN="$(grep -m1 -E '^GITHUB_TOKEN=' "$HOME/.hermes/.env" 2>/dev/null | cut -d= -f2- | tr -d '"'"'"'"' || true)"
+token_from_file() {
+  [ -f "$1" ] || return 0
+  sed -n 's/^GITHUB_TOKEN=//p' "$1" 2>/dev/null | head -1 | tr -d '"' | tr -d "'" || true
+}
+
+if [ -z "${GITHUB_TOKEN:-}" ]; then
+  for candidate in "$HOME/.hermes/.env" "${HERMES_HOME:+$HERMES_HOME/.env}" "$PROFILE_DIR/.env"; do
+    GITHUB_TOKEN="$(token_from_file "$candidate")"
+    [ -n "$GITHUB_TOKEN" ] && break
+  done
 fi
 
 copy_tree() { # copy_tree SRC DST
