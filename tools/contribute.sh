@@ -101,44 +101,42 @@ if [ -n "$UNCLASSIFIED" ]; then
 
   if [ -t 0 ] && [ -r /dev/tty ]; then
     say ""
-    say "  [c] — сертификационный: перенести в certification/ и опубликовать"
+    say "  [c] — процедура сертификации: перенести в certification/ и опубликовать"
+    say "  [t] — служебный инструмент: перенести в certification/tools/ и опубликовать"
     say "  [l] — оставить локально (записать в [private])"
     say "  [Enter] — пропустить, решить позже"
     while IFS= read -r rel; do
       [ -n "$rel" ] || continue
       name="${rel##*/}"
-      printf '  %s → [c/l/Enter]: ' "$rel"
+      printf '  %s → [c/t/l/Enter]: ' "$rel"
       answer=""
       read -r answer < /dev/tty || answer=""
       case "${answer:-}" in
         c|C|с|С)
-          mkdir -p "$PROFILE_DIR/skills/certification"
-          target="$name"
-          case "$name" in
-            certification-*) ;;
-            *) target="certification-$name" ;;
-          esac
-          if [ -e "$PROFILE_DIR/skills/certification/$target" ]; then
-            say "    ✖ certification/$target уже существует — пропущено"
-            continue
-          fi
-          mv "$PROFILE_DIR/skills/$rel" "$PROFILE_DIR/skills/certification/$target"
-          if [ "$target" != "$name" ]; then
-            sed -i -E "s/^name:[[:space:]]*.*/name: $target/" "$PROFILE_DIR/skills/certification/$target/SKILL.md"
-            say "    ▸ переименовано в $target (в категории certification префикс обязателен)"
-          fi
-          copy_tree "$PROFILE_DIR/skills/certification/$target" "$REPO_DIR/skills/certification/$target"
-          say "    ▸ перенесено в certification/$target и добавлено в публикацию"
-          SYNCED=$((SYNCED + 1))
+          subdir="certification"
+          ;;
+        t|T)
+          subdir="certification/tools"
           ;;
         l|L|л|Л)
           python3 "$REPO_DIR/tools/publish_policy.py" --classify "$rel" private >/dev/null
           say "    ▸ отмечено локальным ([private])"
+          continue
           ;;
         *)
           say "    · пропущено: останется вне политики, пока не решите"
+          continue
           ;;
       esac
+      mkdir -p "$PROFILE_DIR/skills/$subdir"
+      if [ -e "$PROFILE_DIR/skills/$subdir/$name" ]; then
+        say "    ✖ $subdir/$name уже существует — пропущено"
+        continue
+      fi
+      mv "$PROFILE_DIR/skills/$rel" "$PROFILE_DIR/skills/$subdir/$name"
+      copy_tree "$PROFILE_DIR/skills/$subdir/$name" "$REPO_DIR/skills/$subdir/$name"
+      say "    ▸ перенесено в $subdir/$name и добавлено в публикацию"
+      SYNCED=$((SYNCED + 1))
     done <<< "$UNCLASSIFIED"
   else
     say "  неинтерактивный режим: спросите пользователя, затем"
