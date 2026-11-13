@@ -1,5 +1,5 @@
 name: hermes-certification-assistant
-version: 1.4.0
+version: 1.5.0
 description: "Ассистент для сертификационной тестовой документации ФСТЭК (приказ № 76) на веб-СЗИ: E2E-прогоны по функциям безопасности, отчёт .docx со свидетельствами, сводка .md"
 hermes_requires: ">=0.12.0"
 author: "amaryan"
