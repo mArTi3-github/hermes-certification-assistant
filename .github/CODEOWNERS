@@ -1,0 +1,11 @@
+# Код-овнеры: ревью обязательно у владельца репозитория.
+# Ветка main защищена, изменения приходят только через pull request.
+
+*                       @mArTi3-github
+
+/skills/                @mArTi3-github
+/tools/                 @mArTi3-github
+/.github/               @mArTi3-github
+/config.yaml            @mArTi3-github
+/distribution.yaml      @mArTi3-github
+/SOUL.md                @mArTi3-github

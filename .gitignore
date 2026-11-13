@@ -39,7 +39,6 @@
 /document_cache/
 /browser_screenshots/
 /cache/
-/tools/
 /shared-state.db
 /projects.db
 
@@ -68,3 +67,8 @@
 __pycache__/
 *.pyc
 .DS_Store
+
+# Локальные бэкапы скриптов contribute/sync — не публикуются
+/.backup/
+/.venv/
+
