@@ -13,9 +13,9 @@ publish_categories: certification
 
 # Явные исключения: публикуются, хотя их категория не в списке по умолчанию.
 [publish]
+autonomous-ai-agents/hermes-agent-notes
 productivity/docx
 software-development/profile-contribution
 
 # Явно локальные: не публикуются, даже если попадут в публикуемую категорию.
 [private]
-autonomous-ai-agents/hermes-agent-notes

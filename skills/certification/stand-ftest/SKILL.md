@@ -9,7 +9,7 @@ metadata:
   hermes:
     tags: [fstek, certification, security-functions, testing, docx, e2e, appsec]
     category: certification
-    related_skills: [docx, dogfood, grounded-citations]
+    related_skills: [docx, dogfood, grounded-citations, hermes-agent-notes]
 ---
 
 # Тестовая документация ФСТЭК (функции безопасности)
@@ -108,7 +108,9 @@ metadata:
   сводка `.md`), а при сомнении перечитывать, а не вспоминать. Одна сессия — один
   блок работ (разбор документа, прогон раздела, сборка отчёта), новая сессия
   начинается коротким брифом: путь к отчёту, адрес стенда, какой раздел. Процедура
-  живёт в скилле, состояние — в файлах.
+  живёт в скилле, состояние — в файлах. Настройки сжатия, замер реального
+  размера сессии и `/compress here N` — в скилле `hermes-agent-notes`
+  (`references/context-and-compression.md`).
 
 ## Свидетельства выполнения шага
 
