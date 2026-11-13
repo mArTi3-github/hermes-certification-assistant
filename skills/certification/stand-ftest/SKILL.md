@@ -1,5 +1,5 @@
 ---
-name: certification-stand-ftest
+name: stand-ftest
 description: Use when testing a ФСТЭК certification stand and its docs.
 version: 1.8.1
 author: Hermes Agent
@@ -8,15 +8,15 @@ platforms: [linux, macos, windows]
 metadata:
   hermes:
     tags: [fstek, certification, security-functions, testing, docx, e2e, appsec]
-    category: security
+    category: certification
     related_skills: [docx, dogfood, grounded-citations]
 ---
 
 # Тестовая документация ФСТЭК (функции безопасности)
 
-Скилл `certification-stand-ftest`: `certification` — общий префикс скиллов по
-сертификации, `stand.ftest` — принятое в компании название проверки (стенд,
-тестовая документация по приказу № 76).
+`stand-ftest` — принятое в компании название проверки (стенд, тестовая документация
+по приказу № 76). Категория `certification/` уже говорит, что скилл про сертификацию,
+поэтому префикс в имени не нужен.
 
 Класс задач: читать, проверять и писать «Тестовую документацию» на программное
 изделие (СЗИ) по приказу ФСТЭК России № 76 — отчёт о тестировании, где

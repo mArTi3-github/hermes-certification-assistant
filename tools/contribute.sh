@@ -2,7 +2,7 @@
 # Публикация правок профиля: копирует скиллы из живого профиля в клон репозитория,
 # прогоняет линт, коммитит в отдельную ветку и (если есть GITHUB_TOKEN) открывает PR.
 #
-#   tools/contribute.sh -m "certification-stand-ftest: уточнил проверку блокировок"
+#   tools/contribute.sh -m "stand-ftest: уточнил проверку блокировок"
 #   tools/contribute.sh -i security/my-new-skill -m "новый скилл: ..."
 #
 # Переменные окружения:

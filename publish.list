@@ -19,4 +19,3 @@ software-development/profile-contribution
 
 # Явно локальные: не публикуются, даже если попадут в публикуемую категорию.
 [private]
-security/attack-surface-analysis

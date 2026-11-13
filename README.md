@@ -38,7 +38,7 @@ hermes-certification-assistant chat
 python3 <клон>/tools/skill_lint.py
 
 # 2. Опубликовать: копирует правки в клон, коммитит в ветку, пушит и открывает PR
-<клон>/tools/contribute.sh -m "certification-stand-ftest: уточнил проверку блокировок"
+<клон>/tools/contribute.sh -m "stand-ftest: уточнил проверку блокировок"
 
 # 3. Принять обновления из main к себе в профиль
 <клон>/tools/sync.sh
@@ -69,8 +69,7 @@ software-development/profile-contribution
 productivity/docx
 ...
 
-[private]                           # не публикуется никогда
-security/attack-surface-analysis
+[private]                           # не публикуется никогда (сейчас пусто)
 ```
 
 Приоритет правил:
@@ -140,11 +139,9 @@ skills/<любая другая категория>/      локально, ес
 
 | Скилл | Зачем |
 |---|---|
-| `certification/certification-stand-ftest` | методика тестовой документации по приказу № 76: разделы, функции безопасности, структура отчёта, сбор свидетельств |
-| `certification/tools/cve-sbom-vex-mapping` | сопоставление списков CVE с таблицами SBOM/VEX |
-| `certification/certification-dist-fuzz-report-check` | проверка материалов фаззинг-тестирования по Методике ВУ: отчёт и разбор артефактов AFL |
-| `certification/tools/codeql-cli` | установка, проверка и запуск CodeQL CLI |
-| `certification/tools/sast-cpp-without-build` | SAST для C/C++ репозиториев без сборки (Semgrep, cppcheck) |
+| `certification/stand-ftest` | методика тестовой документации по приказу № 76: разделы, функции безопасности, структура отчёта, сбор свидетельств |
+| `certification/dist-fuzz-report-check` | проверка материалов фаззинг-тестирования по Методике ВУ: отчёт и разбор артефактов AFL |
+| `certification/attack-surface-analysis` | анализ поверхности атаки из исходников: модель нарушителя, классификация находок, требования к доказательности |
 | `software-development/profile-contribution` | регламент совместной модернизации профиля: PR, ревью, синхронизация |
 | `productivity/docx` | работа с `.docx`; **отличается от стокового** — добавлен `scripts/docx_read_ordered.py` (чтение в порядке документа) |
 | `autonomous-ai-agents/hermes-agent` | работа с самим Hermes; **отличается от стокового** — расширенный набор reference-файлов |

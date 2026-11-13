@@ -72,7 +72,7 @@ python3 ~/work/hermes-certification-assistant/tools/skill_lint.py
 
 # 2. Публикация: копирование профиль → репозиторий, линт, ветка, коммит, push, PR
 ~/work/hermes-certification-assistant/tools/contribute.sh \
-  -m "certification-stand-ftest: уточнил порядок проверки блокировок"
+  -m "stand-ftest: уточнил порядок проверки блокировок"
 
 # 3. Если PR не создался автоматически — откройте напечатанную ссылку compare в браузере
 ```

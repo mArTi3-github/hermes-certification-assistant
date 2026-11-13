@@ -1,5 +1,5 @@
 ---
-name: certification-dist-fuzz-report-check
+name: dist-fuzz-report-check
 description: Проверка материалов фаззинг-тестирования по Методике ВУ.
 version: 1.0.0
 author: Hermes Agent
@@ -8,8 +8,8 @@ platforms: [linux, macos]
 metadata:
   hermes:
     tags: [fstek, certification, fuzzing, afl, методика-ву, appsec, review]
-    category: security
-    related_skills: [certification-stand-ftest]
+    category: certification
+    related_skills: [stand-ftest]
 ---
 
 # Проверка материалов фаззинг-тестирования (DIST.FUZZ)

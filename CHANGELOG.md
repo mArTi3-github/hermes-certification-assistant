@@ -5,6 +5,13 @@
 
 ## Unreleased
 
+## 1.4.0 — 2026-11-13
+
+- Скиллы переименованы без префикса: `certification/stand-ftest`, `certification/dist-fuzz-report-check`.
+- `attack-surface-analysis` перенесён в `certification/` — публикуется по категории, `[private]` пуст.
+- Удалены скиллы одноразовых задач: `codeql-cli`, `sast-cpp-without-build`, `cve-sbom-vex-mapping`.
+- Обновлены перекрёстные ссылки в `related_skills`, README и примерах команд.
+
 ## 1.3.0 — 2026-11-13
 
 - Служебные авторские скиллы переехали в `certification/tools/` (`codeql-cli`,
