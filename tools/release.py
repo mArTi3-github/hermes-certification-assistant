@@ -66,6 +66,16 @@ def main() -> int:
     current = current.group(1) if current else "?"
     if current == version:
         sys.exit(f"версия {version} уже стоит в distribution.yaml")
+
+    def as_tuple(v: str) -> tuple[int, ...]:
+        return tuple(int(part) for part in v.split("."))
+
+    try:
+        if as_tuple(version) < as_tuple(current):
+            sys.exit(f"версия {version} меньше текущей {current}: теги неизменяемы, "
+                     f"ошибочный релиз исправляется следующей версией")
+    except ValueError:
+        sys.exit(f"не удалось сравнить версии {current} и {version}")
     if sh("status", "--porcelain"):
         sys.exit("рабочее дерево грязное — закоммитьте правки до релиза")
     if sh("tag", "-l", f"v{version}"):

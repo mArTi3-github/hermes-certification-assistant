@@ -25,3 +25,13 @@ jobs:
 
       - name: Секреты в истории git
         run: python tools/skill_lint.py --history
+
+      - name: Версию в PR не меняют
+        if: github.event_name == 'pull_request'
+        run: |
+          changed="$(git diff --name-only "origin/${{ github.base_ref }}...HEAD")"
+          if printf '%s\n' "$changed" | grep -qx 'distribution.yaml'; then
+            echo "::error file=distribution.yaml::Версию поднимает только владелец при релизе: python3 tools/release.py <версия>"
+            exit 1
+          fi
+          echo "distribution.yaml не тронут — ок"
