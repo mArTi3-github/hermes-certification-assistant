@@ -15,6 +15,9 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parent.parent
 SKILLS = ROOT / "skills"
 
+sys.path.insert(0, str(Path(__file__).resolve().parent))
+import publish_policy  # noqa: E402
+
 DESC_WARN = 60          # рекомендация skill_manage: описание короче 60 символов
 DESC_MAX = 400
 SIZE_WARN = 200_000
@@ -215,6 +218,27 @@ def check_history(report: Report) -> None:
             report.error(f"коммит {commit}", f"секрет в истории: {label} — {line[1:120].strip()}")
 
 
+def check_policy(report: Report) -> None:
+    """Сверяет содержимое репозитория с publish.list."""
+    policy = publish_policy.load()
+    published, private = set(policy["publish"]), set(policy["private"])
+
+    for item in sorted(published & private):
+        report.error("publish.list", f"{item}: одновременно в [publish] и [private]")
+
+    in_repo = {path.parent.relative_to(SKILLS).as_posix() for path in SKILLS.glob("*/*/SKILL.md")}
+    for item in sorted(in_repo - published):
+        report.error(
+            f"skills/{item}",
+            "скилл лежит в репозитории, но не указан в [publish] файла publish.list",
+        )
+    for item in sorted(published - in_repo):
+        report.error(
+            f"skills/{item}",
+            "указан в [publish], но в репозитории отсутствует — публикация неполная",
+        )
+
+
 def main() -> int:
     parser = argparse.ArgumentParser(description="Линт дистрибутива профиля Hermes")
     parser.add_argument("--history", action="store_true", help="дополнительно просканировать историю git")
@@ -224,6 +248,7 @@ def main() -> int:
     count = check_skills(report)
     check_tracked(report)
     check_config(report)
+    check_policy(report)
     if args.history:
         check_history(report)
 

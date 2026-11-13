@@ -51,6 +51,9 @@ metadata:
 7. **Bundled-скиллы не вендорятся.** Штатные скиллы Hermes приезжают сами; в репозиторий
    кладём только авторские и осознанно изменённые.
 8. **Не редактировать чужие PR-ветки без договорённости.** Замечания — комментарием в PR.
+9. **Публикуется только то, что перечислено в `publish.list`.** Новый скилл не уходит в репозиторий
+   сам: добавьте его командой `contribute.sh -i <категория/имя>` (или строкой в `[publish]`).
+   Всё, что не классифицировано, остаётся локальным — это защита от случайной публикации.
 
 ## Как предложить изменение (контрибьютор)
 
@@ -63,6 +66,19 @@ python3 ~/work/hermes-certification-assistant/tools/skill_lint.py
   -m "certification-stand-ftest: уточнил порядок проверки блокировок"
 
 # 3. Если PR не создался автоматически — откройте напечатанную ссылку compare в браузере
+```
+
+Если скилл новый и его ещё нет в политике публикации, добавьте его явно:
+
+```bash
+~/work/hermes-certification-assistant/tools/contribute.sh \
+  -i security/my-new-skill -m "новый скилл: проверка чего-то"
+```
+
+Посмотреть, что публикуется, что осталось локальным и что не классифицировано:
+
+```bash
+python3 ~/work/hermes-certification-assistant/tools/publish_policy.py --status --profile "$HERMES_HOME"
 ```
 
 Что делает `contribute.sh`:
@@ -133,4 +149,5 @@ git -C ~/work/hermes-certification-assistant diff main...origin/<ветка> -- 
 | `remote origin не настроен` | `git -C <клон> remote add origin git@github.com:mArTi3-github/hermes-certification-assistant.git` |
 | PR не создался, напечатана ссылка | нет `GITHUB_TOKEN` — это штатный режим, открыть PR в браузере |
 | Скилл не появился у коллег | они не сделали `sync.sh`; правка есть в `main`, но не в их профиле |
+| Скилл не попал в репозиторий | его нет в `[publish]` файла `publish.list` — добавьте строку или запустите `contribute.sh -i <путь>` |
 | Скилл пропал после синхронизации | он не был опубликован в `main`; восстановить из `.backup/pre-sync-*` и провести через PR |

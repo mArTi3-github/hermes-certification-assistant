@@ -3,6 +3,7 @@
 # прогоняет линт, коммитит в отдельную ветку и (если есть GITHUB_TOKEN) открывает PR.
 #
 #   tools/contribute.sh -m "certification-stand-ftest: уточнил проверку блокировок"
+#   tools/contribute.sh -i security/my-new-skill -m "новый скилл: ..."
 #
 # Переменные окружения:
 #   PROFILE_DIR  — каталог профиля (по умолчанию $HERMES_HOME или профиль по умолчанию)
@@ -16,6 +17,7 @@ PROFILE_DIR="${PROFILE_DIR:-${HERMES_HOME:-$HOME/.hermes/profiles/hermes-certifi
 BRANCH_PREFIX="${BRANCH_PREFIX:-contrib}"
 MESSAGE=""
 BRANCH=""
+INCLUDE=""
 BASE="${BASE:-main}"
 
 die() { printf '\n✖ %s\n' "$*" >&2; exit 1; }
@@ -31,6 +33,7 @@ while [ $# -gt 0 ]; do
     -m|--message) MESSAGE="${2:-}"; shift 2 ;;
     -b|--branch)  BRANCH="${2:-}";  shift 2 ;;
     -p|--profile) PROFILE_DIR="${2:-}"; shift 2 ;;
+    -i|--include) INCLUDE="${2:-}"; shift 2 ;;
     -h|--help)    usage ;;
     *) die "неизвестный аргумент: $1 (см. --help)" ;;
   esac
@@ -39,6 +42,11 @@ done
 [ -n "$MESSAGE" ] || die "нужно описание изменения: -m \"что и зачем\""
 [ -d "$PROFILE_DIR/skills" ] || die "не найден профиль: $PROFILE_DIR"
 git -C "$REPO_DIR" rev-parse --git-dir >/dev/null 2>&1 || die "не git-репозиторий: $REPO_DIR"
+
+if [ -n "$INCLUDE" ]; then
+  [ -f "$PROFILE_DIR/skills/$INCLUDE/SKILL.md" ] || die "в профиле нет скилла: $INCLUDE"
+  python3 "$REPO_DIR/tools/publish_policy.py" --include "$INCLUDE"
+fi
 
 token_from_file() {
   [ -f "$1" ] || return 0
@@ -71,38 +79,27 @@ else
 fi
 say "▪ бэкап скиллов профиля: $BACKUP"
 
-# --- сбор набора скиллов: те, что уже в репо, плюс новые авторские ---------
+# --- сбор набора скиллов по политике publish.list --------------------------
+# Публикуется ровно то, что перечислено в [publish]; всё прочее остаётся в профиле.
 SYNCED=0
-SKIPPED=0
-BUNDLED="$PROFILE_DIR/skills/.bundled_manifest"
-
 while IFS= read -r rel; do
   [ -n "$rel" ] || continue
-  if [ -d "$PROFILE_DIR/$rel" ]; then
-    copy_tree "$PROFILE_DIR/$rel" "$REPO_DIR/$rel"
+  if [ -d "$PROFILE_DIR/skills/$rel" ]; then
+    copy_tree "$PROFILE_DIR/skills/$rel" "$REPO_DIR/skills/$rel"
     say "  ↻ $rel"
     SYNCED=$((SYNCED + 1))
   else
-    say "  · $rel — в профиле отсутствует, пропущено"
+    say "  · $rel — в профиле отсутствует, в репозитории остаётся текущая версия"
   fi
-done < <(git -C "$REPO_DIR" ls-files 'skills/*/*/SKILL.md' | sed 's|/SKILL.md$||')
+done < <(python3 "$REPO_DIR/tools/publish_policy.py" --published)
 
-while IFS= read -r rel; do
-  [ -n "$rel" ] || continue
-  name="$(basename "$rel")"
-  if ! git -C "$REPO_DIR" ls-files --error-unmatch "$rel/SKILL.md" >/dev/null 2>&1; then
-    if [ -f "$BUNDLED" ] && grep -q "^${name}:" "$BUNDLED" 2>/dev/null; then
-      say "  · $rel — совпадает по имени со штатным скиллом, пропущено (укажите путь вручную в PR)"
-      SKIPPED=$((SKIPPED + 1))
-      continue
-    fi
-    [ -d "$PROFILE_DIR/$rel" ] || continue
-    mkdir -p "$REPO_DIR/$rel"
-    copy_tree "$PROFILE_DIR/$rel" "$REPO_DIR/$rel"
-    say "  + $rel (новый скилл)"
-    SYNCED=$((SYNCED + 1))
-  fi
-done < <(cd "$PROFILE_DIR/skills" && find . -mindepth 3 -maxdepth 3 -name SKILL.md | sed 's|^\./|skills/|; s|/SKILL.md$||' | sort)
+UNCLASSIFIED="$(python3 "$REPO_DIR/tools/publish_policy.py" --profile "$PROFILE_DIR" --unclassified 2>/dev/null || true)"
+if [ -n "$UNCLASSIFIED" ]; then
+  say ""
+  say "⚠ авторские скиллы вне политики (остаются локально):"
+  printf '%s\n' "$UNCLASSIFIED" | sed 's/^/    /'
+  say "  чтобы опубликовать: tools/publish_policy.py --include <категория/имя>, затем повторить"
+fi
 
 [ "$SYNCED" -gt 0 ] || die "нечего публиковать: в профиле нет изменённых скиллов"
 

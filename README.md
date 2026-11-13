@@ -56,6 +56,28 @@ python3 <клон>/tools/skill_lint.py
 - Адреса стендов в скиллах не фиксируются: только плейсхолдеры (`<узел>`, `<стенд>`).
 - Незакоммиченная правка исчезнет при следующей синхронизации — правки публикуются, а не копятся.
 
+### Какие скиллы публикуются
+
+Правило одно и оно явное — файл `publish.list`:
+
+```text
+[publish]   # уходит в GitHub и приезжает коллегам
+security/certification-stand-ftest
+software-development/profile-contribution
+
+[private]   # остаётся только в профиле владельца
+security/attack-surface-analysis
+```
+
+- Публикуется ровно то, что в `[publish]`; штатные скиллы Hermes не перечисляются — они приезжают сами.
+- Скилл вне обоих разделов — неклассифицированный: CI падает, если он лежит в репозитории, а `contribute.sh`
+  печатает предупреждение и **не** публикует его молча.
+- Текущая картина: `python3 tools/publish_policy.py --status --profile <каталог профиля>`.
+- Новый скилл: `tools/contribute.sh -i security/my-skill -m "новый скилл: ..."` — команда сама добавит
+  строку в политику и включит скилл в публикацию.
+- Перенести в приватные: убрать строку из `[publish]`, добавить в `[private]` и удалить каталог из
+  репозитория (`git rm -r skills/<путь>`); со следующей синхронизации скилл исчезнет у коллег.
+
 ### Учётные данные
 
 | Что | Зачем | Где живёт |
@@ -74,7 +96,8 @@ python3 <клон>/tools/skill_lint.py
 | `config.yaml` | полный конфиг профиля: `deepseek-flash` по умолчанию, лимиты контекста, тулсеты, делегирование |
 | `skills/` | авторские скиллы, которые несут специфику работы (см. ниже) |
 | `distribution.yaml` | манифест дистрибутива: версия, требования к окружению, distribution-owned пути |
-| `tools/` | `contribute.sh`, `sync.sh`, `skill_lint.py` — публикация, приём обновлений, линт |
+| `publish.list` | **политика публикации**: какие скиллы уходят в репозиторий, а какие остаются локальными |
+| `tools/` | `contribute.sh`, `sync.sh`, `skill_lint.py`, `publish_policy.py` — публикация, приём обновлений, линт, политика |
 | `.github/` | `CODEOWNERS` (ревью у владельца) и CI `validate` |
 | `CHANGELOG.md` | журнал изменений: строка на PR, раздел на релиз |
 
@@ -84,6 +107,7 @@ python3 <клон>/tools/skill_lint.py
 |---|---|
 | `security/certification-stand-ftest` | методика тестовой документации по приказу № 76: разделы, функции безопасности, структура отчёта, сбор свидетельств |
 | `security/cve-sbom-vex-mapping` | сопоставление списков CVE с таблицами SBOM/VEX |
+| `security/certification-dist-fuzz-report-check` | проверка материалов фаззинг-тестирования по Методике ВУ: отчёт и разбор артефактов AFL |
 | `software-development/codeql-cli` | установка, проверка и запуск CodeQL CLI |
 | `software-development/sast-cpp-without-build` | SAST для C/C++ репозиториев без сборки (Semgrep, cppcheck) |
 | `software-development/profile-contribution` | регламент совместной модернизации профиля: PR, ревью, синхронизация |
