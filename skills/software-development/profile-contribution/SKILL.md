@@ -81,8 +81,13 @@ metadata:
    она переносит `## Unreleased` в раздел с версией, поднимает `distribution.yaml`, ставит тег
    и создаёт GitHub Release. Вручную версию не править — иначе в истории появляются версии без
    меток. Контрибьютор только добавляет строку в `## Unreleased` (это делает `contribute.sh`).
-7. **Bundled-скиллы не вендорятся.** Штатные скиллы Hermes приезжают сами; в репозиторий
-   кладём только авторские и осознанно изменённые.
+7. **Штатные скиллы Hermes не правим.** Любая правка каталога — даже одного `description` —
+   снимает скилл с апдейтов: сравнение идёт по хешу каталога целиком, и `hermes skills sync`
+   печатает `~ <имя> (user-modified, skipping)`. Свои дополнения оформляйте отдельным скиллом
+   (`autonomous-ai-agents/hermes-agent-notes` — пример), а не форком штатного; перенос
+   штатного скилла в другую категорию синхронизация откатывает. Исключение — скилл, у которого
+   в этой сборке нет апстрима (`docx`): его можно держать изменённым и публиковать.
+   Механика, команды и разбор `user-modified` — `references/bundled-skill-updates.md`.
 8. **Не редактировать чужие PR-ветки без договорённости.** Замечания — комментарием в PR.
 9. **Публикация определяется категорией скилла.** Всё, что лежит в `skills/certification/`,
    публикуется по умолчанию (`[defaults] publish_categories` в `publish.list`); всё остальное
@@ -100,6 +105,11 @@ metadata:
     клонирует репозиторий, если клона нет, проверяет токен, запускает `contribute.sh`,
     `sync.sh`, `release.py` и возвращает результат — ссылку на PR, версию, список изменений.
     Отвечать «введите такую команду» нельзя, пока пользователь сам об этом не попросил.
+12. **Версию держат три замка, а не дисциплина.** CI падает на PR, который трогает
+    `distribution.yaml`; `release.py` отказывается ставить версию ниже текущей; теги `v*`
+    закрыты ruleset'ом, поэтому чужой push получает
+    `Cannot create ref due to creations being restricted`, а админ проходит по bypass.
+    Следствие: если тег уже стоит, выпускают следующую версию, а не переставляют тег.
 
 ## Как предложить изменение (контрибьютор)
 
@@ -194,8 +204,8 @@ git -C ~/work/hermes-certification-assistant diff main...origin/<ветка> -- 
 Релиз после мержа:
 
 ```bash
-python3 ~/work/hermes-certification-assistant/tools/release.py 1.7.0 --dry-run
-python3 ~/work/hermes-certification-assistant/tools/release.py 1.7.0
+python3 ~/work/hermes-certification-assistant/tools/release.py <версия> --dry-run
+python3 ~/work/hermes-certification-assistant/tools/release.py <версия>
 ```
 
 ## Креды и секреты
@@ -220,3 +230,6 @@ python3 ~/work/hermes-certification-assistant/tools/release.py 1.7.0
 | Скилл не появился у коллег | они не сделали `sync.sh`; правка есть в `main`, но не в их профиле |
 | Скилл не попал в репозиторий | его категория не публикуется: перенесите в `skills/certification/` (или `certification/tools/`) либо добавьте строку в `[publish]` через `contribute.sh -i <путь>` |
 | Скилл пропал после синхронизации | он не был опубликован в `main`; восстановить из `.backup/pre-sync-*` и провести через PR |
+| `Cannot create ref due to creations being restricted` при пуше тега | теги `v*` закрыты ruleset'ом; релиз выпускает владелец через `release.py` под админским токеном |
+| CI: «Версию в PR не меняют» | правку `distribution.yaml` из PR убрать: версию поднимает владелец при релизе |
+| `~ <имя> (user-modified, skipping)` при обновлении Hermes | штатный скилл правили; вернуть `hermes skills reset <имя> --restore --yes`, дополнения вынести в отдельный скилл |
