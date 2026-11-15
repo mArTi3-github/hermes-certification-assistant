@@ -2,6 +2,8 @@
 # Приём обновлений из репозитория в живой профиль Hermes.
 #
 #   tools/sync.sh              # обновить скиллы и SOUL.md
+#   tools/sync.sh --check      # только показать, что изменится (код 3 — есть непубликованное)
+#   tools/sync.sh --force      # перезаписать, даже если в профиле есть неопубликованные правки
 #   tools/sync.sh --config     # дополнительно перезаписать config.yaml
 #   tools/sync.sh --prune      # удалить из профиля скиллы, которые политика больше не публикует
 #
@@ -14,12 +16,16 @@ PROFILE_DIR="${PROFILE_DIR:-${HERMES_HOME:-$HOME/.hermes/profiles/$ACTIVE_PROFIL
 MANAGED="$PROFILE_DIR/skills/.distribution_managed"
 COPY_CONFIG=0
 PRUNE=0
+CHECK_ONLY=0
+FORCE=0
 
 for arg in "$@"; do
   case "$arg" in
     --config) COPY_CONFIG=1 ;;
     --prune)  PRUNE=1 ;;
-    -h|--help) sed -n '2,10p' "${BASH_SOURCE[0]}" | sed 's/^# \{0,1\}//'; exit 0 ;;
+    --check)  CHECK_ONLY=1 ;;
+    --force)  FORCE=1 ;;
+    -h|--help) sed -n '2,12p' "${BASH_SOURCE[0]}" | sed 's/^# \{0,1\}//'; exit 0 ;;
     *) printf 'неизвестный аргумент: %s\n' "$arg" >&2; exit 2 ;;
   esac
 done
@@ -35,6 +41,51 @@ else
 fi
 
 NEW_LIST="$(python3 "$REPO_DIR/tools/publish_policy.py" --published)"
+
+# --- предполётная сверка: не потерять неопубликованные правки ---------------
+# Обновление копирует скиллы репозитория поверх профиля: локальная правка исчезнет.
+# Поэтому сначала спрашиваем publish_check, и при неопубликованных правках останавливаемся.
+set +e
+python3 "$REPO_DIR/tools/publish_check.py" --profile "$PROFILE_DIR"
+CHECK_RC=$?
+set -e
+
+if [ "$CHECK_ONLY" = "1" ]; then
+  if [ "$CHECK_RC" = "0" ]; then
+    echo ""
+    echo "✔ ничего не потеряется: профиль совпадает с репозиторием"
+    echo "  Запустите без --check, чтобы применить обновление."
+    exit 0
+  fi
+  echo ""
+  echo "⚠ обновление перезапишет неопубликованные правки (см. ≠ и + выше)"
+  echo "  Опубликуйте их (tools/contribute.sh -m \"…\") и повторите, либо запустите sync.sh --force."
+  exit 3
+fi
+
+if [ "$CHECK_RC" != "0" ] && [ "$FORCE" != "1" ]; then
+  cat <<'EOF'
+
+✖ обновление остановлено: в профиле есть неопубликованные правки.
+   sync.sh копирует скиллы репозитория поверх профиля, то есть эти правки исчезнут
+   (копия профиля уйдёт в .backup/pre-sync-*, но вспоминать про неё придётся вручную).
+
+   Как поступить — выберите одно:
+
+     1) опубликовать, потом обновить (обычный путь):
+          tools/contribute.sh -m "что и зачем"
+          # PR смержен → main = профиль → повторный sync.sh ничего не потеряет
+
+     2) сохранить копию и всё же обновить:
+          python3 tools/publish_check.py --save .backup/pre-update-$(date +%Y%m%d-%H%M%S)
+          tools/sync.sh --force
+          # вернуть правку: скопировать каталог скилла из копии обратно в профиль
+
+     3) осознанно перезаписать правки:
+          tools/sync.sh --force
+EOF
+  exit 3
+fi
 
 STAMP="$(date +%Y%m%d-%H%M%S)"
 BACKUP="$REPO_DIR/.backup/pre-sync-$STAMP"
