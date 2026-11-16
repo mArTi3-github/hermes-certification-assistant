@@ -328,6 +328,53 @@ class AuditScanTest(unittest.TestCase):
         self.assertTrue(match, "находка с открытым вопросом пропала")
         self.assertEqual(match[0]["previously_resolved"]["answer"], "ждём решения владельца")
 
+    # -- отпечатки находок -----------------------------------------------------
+
+    def test_fingerprint_independent_of_line_number(self) -> None:
+        repo, profile = build_fixture(self.base)
+        before, _ = run_scan(repo, profile)
+        target = [f for f in before["findings"]
+                  if f["check"] == "paths" and "old-guide" in f["title"]][0]
+        skill = repo / "skills/certification/demo-skill/SKILL.md"
+        skill.write_text("# Заголовок\n\nНовый абзац.\n\n" + skill.read_text(encoding="utf-8"),
+                         encoding="utf-8")
+        after, _ = run_scan(repo, profile)
+        match = [f for f in after["findings"] if "old-guide" in f["title"]][0]
+        self.assertEqual(target["fingerprint"], match["fingerprint"],
+                         "сдвиг строк меняет отпечаток: разобранная находка вернётся")
+        self.assertNotEqual(target["evidence"][0]["line"], match["evidence"][0]["line"],
+                            "строки не сдвинулись — тест ничего не проверяет")
+
+    def test_fingerprint_changes_when_evidence_changes(self) -> None:
+        repo, profile = build_fixture(self.base)
+        before, _ = run_scan(repo, profile)
+        target = [f for f in before["findings"]
+                  if f["check"] == "paths" and "old-guide" in f["title"]][0]
+        skill = repo / "skills/certification/demo-skill/SKILL.md"
+        skill.write_text(skill.read_text(encoding="utf-8").replace("old-guide.md", "older-guide.md"),
+                         encoding="utf-8")
+        after, _ = run_scan(repo, profile)
+        match = [f for f in after["findings"] if "older-guide" in f["title"]][0]
+        self.assertNotEqual(target["fingerprint"], match["fingerprint"],
+                            "изменившаяся улика сохранила отпечаток — вопрос не зададут заново")
+
+    def test_incremental_survives_unrelated_edits(self) -> None:
+        repo, profile = build_fixture(self.base)
+        before, _ = run_scan(repo, profile)
+        target = [f for f in before["findings"]
+                  if f["check"] == "paths" and "old-guide" in f["title"]][0]
+        ledger = profile / ".audit/ledger.jsonl"
+        ledger.parent.mkdir(parents=True, exist_ok=True)
+        ledger.write_text(json.dumps({"ts": "2026-11-16T12:00:00+00:00",
+                                      "fingerprint": target["fingerprint"],
+                                      "status": "resolved", "answer": "переименован"},
+                                     ensure_ascii=False) + "\n", encoding="utf-8")
+        skill = repo / "skills/certification/demo-skill/SKILL.md"
+        skill.write_text("\n\n" + skill.read_text(encoding="utf-8"), encoding="utf-8")
+        after, _ = run_scan(repo, profile, "--mode", "incremental")
+        self.assertNotIn(target["fingerprint"], {f["fingerprint"] for f in after["findings"]},
+                         "после правки выше по файлу разобранная находка вернулась")
+
     # -- ложные срабатывания ---------------------------------------------------
 
     def test_clean_materials_have_no_findings(self) -> None:
