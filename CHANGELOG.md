@@ -5,6 +5,7 @@
 
 ## Unreleased
 
+- 2026-11-16 — profile-contribution: числа состава убраны из прозы, путь skill_ledger.py уточнён (находки аудита profile-audit) (BarniKviks)
 - 2026-11-16 — profile-contribution: разложение коммитов — чужие заметки ниже своей правки, проверка по файлам (mArTi3-github)
 
 ## 1.13.0 — 2026-11-16
