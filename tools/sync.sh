@@ -45,15 +45,36 @@ NEW_LIST="$(python3 "$REPO_DIR/tools/publish_policy.py" --published)"
 # --- предполётная сверка: не потерять неопубликованные правки ---------------
 # Обновление копирует скиллы репозитория поверх профиля: локальная правка исчезнет.
 # Поэтому сначала спрашиваем publish_check, и при неопубликованных правках останавливаемся.
+# Важно различать два состояния: `≠`/`+` (правка в профиле, её потеряем) и `-` (скилл есть
+# в репозитории, нет в профиле — это и есть то, что синхронизация приносит). Второе
+# останавливать нельзя, иначе каждый новый скилл требует --force.
 set +e
 python3 "$REPO_DIR/tools/publish_check.py" --profile "$PROFILE_DIR"
-CHECK_RC=$?
+CHECK_JSON="$(python3 "$REPO_DIR/tools/publish_check.py" --profile "$PROFILE_DIR" --json 2>/dev/null)"
+COUNT="$(printf '%s' "$CHECK_JSON" | python3 -c '
+import json, sys
+try:
+    d = json.load(sys.stdin)
+except Exception:
+    print("? ?"); raise SystemExit
+print(len(d.get("pending") or []), len(d.get("lagging") or []))
+' 2>/dev/null || echo "? ?")"
 set -e
+PENDING="${COUNT%% *}"
+LAGGING="${COUNT##* }"
+if [ "$PENDING" = "?" ]; then
+  printf '✖ publish_check.py не отдал машинный отчёт — обновление остановлено (см. вывод выше)\n' >&2
+  exit 2
+fi
 
 if [ "$CHECK_ONLY" = "1" ]; then
-  if [ "$CHECK_RC" = "0" ]; then
+  if [ "$PENDING" = "0" ]; then
     echo ""
-    echo "✔ ничего не потеряется: профиль совпадает с репозиторием"
+    if [ "$LAGGING" != "0" ] && [ -n "$LAGGING" ]; then
+      echo "✔ терять нечего: приедет $LAGGING новых скиллов из репозитория (состояние -, перезаписи профиля нет)"
+    else
+      echo "✔ ничего не потеряется: профиль совпадает с репозиторием"
+    fi
     echo "  Запустите без --check, чтобы применить обновление."
     exit 0
   fi
@@ -63,7 +84,7 @@ if [ "$CHECK_ONLY" = "1" ]; then
   exit 3
 fi
 
-if [ "$CHECK_RC" != "0" ] && [ "$FORCE" != "1" ]; then
+if [ "$PENDING" != "0" ] && [ "$FORCE" != "1" ]; then
   cat <<'EOF'
 
 ✖ обновление остановлено: в профиле есть неопубликованные правки.
