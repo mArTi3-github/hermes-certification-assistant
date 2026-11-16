@@ -5,7 +5,7 @@
 
 ## Unreleased
 
-- 2026-11-16 — profile-contribution: числа состава убраны из прозы, путь skill_ledger.py уточнён (находки аудита profile-audit) (BarniKviks)
+- 2026-11-16 — profile-contribution: числа состава убраны из прозы, путь `skill_ledger.py` назван файлом каталога `tools/` установки Hermes (скилл, `references/curator-writes-and-publication.md`, комментарий `tools/attribution.py`); profile-audit: уроки аудита — номер пункта списка в `duplicates` не расхождение, путь к файлу вне репозитория пишется без слэша, `grep` по числительным словами, широкий шаблон исключений и цена ручной проверки, порядок дописывания `.audit/ignore.txt`, исключения `paths`/`terminology` для bundled `hermes-agent` (BarniKviks)
 - 2026-11-16 — profile-contribution: разложение коммитов — чужие заметки ниже своей правки, проверка по файлам (mArTi3-github)
 
 ## 1.13.0 — 2026-11-16
