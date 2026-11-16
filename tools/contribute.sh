@@ -200,7 +200,11 @@ else:
     if insert_at < len(lines) and lines[insert_at].strip() == "":
         insert_at += 1
     lines.insert(insert_at, entry)
-    if insert_at + 1 >= len(lines) or lines[insert_at + 1].strip() != "":
+    # Записи Unreleased — один список подряд: пустая строка нужна, только если сразу за
+    # новой записью начинается следующий раздел. Иначе между записями появляется разрыв,
+    # и `release.py` переносит его в раздел версии.
+    next_line = lines[insert_at + 1] if insert_at + 1 < len(lines) else ""
+    if next_line.startswith("## "):
         lines.insert(insert_at + 1, "")
 
 path.write_text("\n".join(lines) + "\n", encoding="utf-8")
