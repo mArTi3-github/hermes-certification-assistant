@@ -218,6 +218,14 @@ git -C "$REPO_DIR" commit -q -m "$MESSAGE"
 say ""
 say "▪ коммит: $(git -C "$REPO_DIR" rev-parse --short HEAD) в ветке $BRANCH"
 
+# --- атрибуция: разложить коммит по авторам, пока он ещё не отправлен ---------
+# Фоновая ревизия Hermes пишет в профиль параллельно; её правки уезжают вместе с нашими.
+# Отдельный коммит с её авторством снимает вопрос «кто это написал» без второго PR.
+if [ -f "$REPO_DIR/tools/attribution.py" ]; then
+  python3 "$REPO_DIR/tools/attribution.py" --split-head \
+    --repo "$REPO_DIR" --profile "$PROFILE_DIR" | sed 's/^/  /' || true
+fi
+
 # --- push -------------------------------------------------------------------
 REMOTE_URL="$(git -C "$REPO_DIR" remote get-url origin 2>/dev/null || true)"
 if [ -z "$REMOTE_URL" ]; then
