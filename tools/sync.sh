@@ -7,6 +7,8 @@
 #   tools/sync.sh --config     # дополнительно перезаписать config.yaml
 #   tools/sync.sh --prune      # удалить из профиля скиллы, которые политика больше не публикует
 #
+# Направление расхождения определяется меткой синхронизации (.sync-state.json в профиле):
+# правка в профиле после синхронизации — стоп, отставший от репозитория профиль — обновляем.
 # Личные данные (.env, auth.json, memories, sessions, state.db) не затрагиваются.
 set -euo pipefail
 
@@ -44,24 +46,25 @@ NEW_LIST="$(python3 "$REPO_DIR/tools/publish_policy.py" --published)"
 
 # --- предполётная сверка: не потерять неопубликованные правки ---------------
 # Обновление копирует скиллы репозитория поверх профиля: локальная правка исчезнет.
-# Поэтому сначала спрашиваем publish_check, и при неопубликованных правках останавливаемся.
-# Важно различать два состояния: `≠`/`+` (правка в профиле, её потеряем) и `-` (скилл есть
-# в репозитории, нет в профиле — это и есть то, что синхронизация приносит). Второе
-# останавливать нельзя, иначе каждый новый скилл требует --force.
+# Направление расхождения видно только по метке синхронизации (tools/sync_state.py):
+#   ≠  профиль изменён после синхронизации → правку потеряем, стоп;
+#   ↓  профиль не трогали, репозиторий ушёл вперёд → это и есть обновление, едем;
+#   -  скилла в профиле нет вовсе → тоже приедет, стоп не нужен.
 set +e
 python3 "$REPO_DIR/tools/publish_check.py" --profile "$PROFILE_DIR"
 CHECK_JSON="$(python3 "$REPO_DIR/tools/publish_check.py" --profile "$PROFILE_DIR" --json 2>/dev/null)"
-COUNT="$(printf '%s' "$CHECK_JSON" | python3 -c '
+COUNTS="$(printf '%s' "$CHECK_JSON" | python3 -c '
 import json, sys
 try:
     d = json.load(sys.stdin)
 except Exception:
-    print("? ?"); raise SystemExit
-print(len(d.get("pending") or []), len(d.get("lagging") or []))
-' 2>/dev/null || echo "? ?")"
+    print("? ? ? ?"); raise SystemExit
+lag = d.get("lagging") or []
+stale = d.get("stale") or []
+print(len(d.get("pending") or []), len(lag), len(stale), len(lag) - len(stale))
+' 2>/dev/null || echo "? ? ? ?")"
 set -e
-PENDING="${COUNT%% *}"
-LAGGING="${COUNT##* }"
+read -r PENDING LAGGING STALE MISSING <<<"$COUNTS"
 if [ "$PENDING" = "?" ]; then
   printf '✖ publish_check.py не отдал машинный отчёт — обновление остановлено (см. вывод выше)\n' >&2
   exit 2
@@ -71,7 +74,8 @@ if [ "$CHECK_ONLY" = "1" ]; then
   if [ "$PENDING" = "0" ]; then
     echo ""
     if [ "$LAGGING" != "0" ] && [ -n "$LAGGING" ]; then
-      echo "✔ терять нечего: приедет $LAGGING новых скиллов из репозитория (состояние -, перезаписи профиля нет)"
+      echo "✔ терять нечего: приедет обновлений — $LAGGING" \
+           "(новое содержимое: $STALE, скиллов нет в профиле: $MISSING)"
     else
       echo "✔ ничего не потеряется: профиль совпадает с репозиторием"
     fi
@@ -120,6 +124,9 @@ if command -v rsync >/dev/null 2>&1; then
 else
   cp -a "$PROFILE_DIR/skills/." "$BACKUP/" || true
   if [ -f "$PROFILE_DIR/distribution.yaml" ]; then cp -a "$PROFILE_DIR/distribution.yaml" "$BACKUP/distribution.yaml"; fi
+fi
+if [ -f "$PROFILE_DIR/.sync-state.json" ]; then
+  cp -a "$PROFILE_DIR/.sync-state.json" "$BACKUP/.sync-state.json"
 fi
 
 # --- удаление скиллов, которые политика перестала публиковать ---------------
@@ -172,6 +179,12 @@ if [ "$COPY_CONFIG" = "1" ] && [ -f "$REPO_DIR/config.yaml" ]; then
 fi
 
 printf '%s\n' "$NEW_LIST" > "$MANAGED"
+
+# --- метка синхронизации: каким профиль стал --------------------------------
+# Гейт следующего запуска решает по ней: содержимое, записанное здесь, считается «профиль не
+# трогали», поэтому смерженный PR коллеги больше не требует --force, а правка в профиле
+# по-прежнему останавливает обновление.
+python3 "$REPO_DIR/tools/sync_state.py" --write --profile "$PROFILE_DIR" --repo "$REPO_DIR"
 
 if [ -n "$MANIFEST_LINE" ]; then echo "$MANIFEST_LINE"; fi
 echo "✔ профиль обновлён: $PROFILE_DIR"
