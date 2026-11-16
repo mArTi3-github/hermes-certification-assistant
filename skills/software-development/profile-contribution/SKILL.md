@@ -1,7 +1,7 @@
 ---
 name: profile-contribution
 description: "Публикация и скачивание обновлений профиля через агента."
-version: 1.2.0
+version: 1.3.0
 author: mArTi3-github
 license: MIT
 platforms: [linux, macos]
@@ -318,7 +318,9 @@ python3 ~/work/hermes-certification-assistant/tools/publish_policy.py --status -
 один коммит с `README.md` **и** строкой в `CHANGELOG.md` сразу после `## Unreleased` в формате
 `- <ГГГГ-ММ-ДД> — <суть> (<git user.name>)`, затем push, PR через API, squash-мерж и уборка ветки.
 После мержа клон возвращается на `main` (`git switch main && git pull --ff-only`), а результат
-читается с `raw.githubusercontent.com/<owner>/<repo>/main/<файл>` — локальный файл доказывает
+читается с `raw.githubusercontent.com/<owner>/<repo>/main/<файл>` (сразу после мержа этот хост может
+отдать старую копию из кэша — тогда сверять через `GET /repos/…/contents?ref=main` или `git show
+origin/main:<файл>`): локальный файл доказывает
 только то, что правка была сделана.
 
 Перед PR: `tools/skill_lint.py` (скиллы не тронуты — 0 ошибок) и проверка документации как кода:
@@ -599,6 +601,7 @@ python3 ~/work/hermes-certification-assistant/tools/release.py <версия>
 | В истории смерженного PR нет ни одного APPROVE | `PUT /pulls/<n>/merge` при `enforce_admins: false` проходит без ревью: одобрение создаётся отдельно (`POST /pulls/<n>/reviews`), иначе след ревью просто отсутствует. У своего PR одобрения быть не может — это не сбой |
 | PR не создался, напечатана ссылка | нет `GITHUB_TOKEN` — это штатный режим, открыть PR в браузере |
 | Заголовок PR вида `Contrib/<имя>/<дата> …`, тело — пустой шаблон с неотмеченными чекбоксами | `contribute.sh` берёт заголовок из `-m` и тело не отправляет вовсе. До ревью нормализовать `PATCH /pulls/<n>`: заголовок `<скилл>: <что изменилось>`, тело — «что/зачем/проверки» с цифрами прогонов; заголовок станет текстом squash-коммита и живёт в истории `main` вечно. Порядок и проверка — раздел «Заголовок и тело PR» |
+| Сразу после мержа `raw.githubusercontent.com` отдаёт старую версию файла | CDN-кэш с TTL; это не откат мержа. Проверять сразу после мержа через API (`GET /repos/<owner>/<repo>/contents/<файл>?ref=main`, содержимое base64) или `git -C <клон> show origin/main:<файл>`, а `raw` — через минуту-другую, когда кэш обновится |
 | `fatal: could not read Username for 'https://github.com'` | токена нет в remote клона — это норма даже при живом `GITHUB_TOKEN`: `contribute.sh` пушит URL-ом с токеном, а обычный `git push` из клона просит логин. Пушить `scripts/push_and_wait_ci.py` (читает токен из окружения или `~/.hermes/.env`, подставляет в URL, ждёт CI по SHA) либо разово `git -c credential.helper='!f() { echo username=x-access-token; echo "password=$GITHUB_TOKEN"; }; f' push origin HEAD`. `contribute.sh` повторно не запускать — он создаст вторую ветку и вторую строку журнала |
 | `! [rejected] … (non-fast-forward)` после `git commit --amend` в **своей** ветке PR | ветка уже отправлена, amend переписал коммит — это ожидаемо. Пушить `--force-with-lease` (только своя ветка, до ревью и мержа); обычный `--force` не применять: он затрёт коммиты, если их успели добавить. Если ветка чужая — правка отдельным коммитом (правило 8), amend не используется |
 | Ветка называется `contrib/<чужое имя>/…`, автор коммита не тот | в local-конфиге клона чужой `user.name`; поправить конфиг, ветку переименовать и авторство исправить до push |
