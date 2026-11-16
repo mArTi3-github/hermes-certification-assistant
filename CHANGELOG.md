@@ -5,7 +5,7 @@
 
 ## Unreleased
 
-- 2026-11-16 — profile-contribution: релиз выпускает агент сам — момент, номер и тег не требуют решения владельца (mArTi3-github)
+- 2026-11-16 — profile-contribution: релиз выпускает агент сам — момент, номер и тег не требуют решения владельца; README (разделы «Как участвовать», «Версии и релизы», «Выпуск новой версии») описан в тех же терминах (mArTi3-github)
 - 2026-11-16 — profile-contribution: кэш raw.githubusercontent сразу после мержа — сверка через API или git show (mArTi3-github)
 - 2026-11-16 — profile-contribution: раздел «Заголовок и тело PR» — форма заголовка, состав тела, проверка ответом GET; строка в таблице ошибок (mArTi3-github)
 - 2026-11-16 — profile-contribution: числа состава убраны из прозы, путь `skill_ledger.py` назван файлом каталога `tools/` установки Hermes (скилл, `references/curator-writes-and-publication.md`, комментарий `tools/attribution.py`); profile-audit: уроки аудита — номер пункта списка в `duplicates` не расхождение, путь к файлу вне репозитория пишется без слэша, `grep` по числительным словами, широкий шаблон исключений и цена ручной проверки, порядок дописывания `.audit/ignore.txt`, исключения `paths`/`terminology` для bundled `hermes-agent` (BarniKviks)
