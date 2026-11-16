@@ -23,6 +23,12 @@ jobs:
       - name: Линт скиллов и config.yaml
         run: python tools/skill_lint.py
 
+      - name: "Метка синхронизации: юнит-тесты"
+        run: python tools/test_sync_state.py
+
+      - name: "Гейт sync.sh: матрица состояний"
+        run: bash tools/test_gate_matrix.sh
+
       - name: Секреты в истории git
         run: python tools/skill_lint.py --history
 

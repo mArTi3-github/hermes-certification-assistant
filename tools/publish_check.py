@@ -8,10 +8,16 @@
 
 Состояния публикуемого скилла:
 
-    =  совпадает           профиль и репозиторий идентичны;
-    ≠  расходится          правка в профиле не опубликована (или наоборот);
-    +  не опубликован      скилл есть в профиле, в репозитории его нет;
-    -  нет в профиле       репозиторий ушёл вперёд, профиль отстал (нужен `sync.sh`).
+    =  совпадает            профиль и репозиторий идентичны;
+    ≠  правка в профиле     профиль изменён после синхронизации и не опубликован;
+    ↓  профиль отстал       профиль не менялся, репозиторий ушёл вперёд (приедет при sync.sh);
+    +  не опубликован       скилл есть в профиле, в репозитории его нет;
+    -  нет в профиле        скилла нет в профиле вовсе.
+
+Направление расхождения (`≠` против `↓`) определяется меткой синхронизации — см.
+`tools/sync_state.py`: она хранит отпечатки содержимого, которые профиль получил при последней
+синхронизации. Без метки направление неизвестно, и решение консервативное: расхождение считается
+непубликованной правкой. Время правки используется только в пояснениях, а не в решении.
 
 Зачем отдельный инструмент: `contribute.sh` копирует профиль в клон один раз и коммитит.
 Между копированием и мержем профиль может измениться — правку дописывает агент, куратор
@@ -30,7 +36,6 @@
 from __future__ import annotations
 
 import argparse
-import hashlib
 import json
 import re
 import shutil
@@ -41,14 +46,13 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(ROOT / "tools"))
 
+import sync_state  # noqa: E402
 from publish_policy import classify, profile_authored, scan  # noqa: E402
-
-IGNORED_NAMES = {"__pycache__", ".DS_Store", ".pytest_cache", ".dist_swap"}
-IGNORED_SUFFIXES = {".pyc", ".pyo"}
 
 STATUS_LABEL = {
     "equal": "=",
     "diverged": "≠",
+    "stale": "↓",
     "not_published": "+",
     "missing_in_profile": "-",
 }
@@ -60,20 +64,8 @@ def git(*args: str) -> tuple[int, str]:
 
 
 def tree_files(root: Path) -> dict[str, str]:
-    """Относительный путь → отпечаток файла, без мусора, который не публикуется."""
-    result: dict[str, str] = {}
-    if not root.is_dir():
-        return result
-    for path in sorted(root.rglob("*")):
-        if not path.is_file():
-            continue
-        rel_parts = path.relative_to(root).parts
-        if path.name in IGNORED_NAMES or path.suffix in IGNORED_SUFFIXES:
-            continue
-        if any(part in IGNORED_NAMES for part in rel_parts[:-1]):
-            continue
-        result["/".join(rel_parts)] = hashlib.sha256(path.read_bytes()).hexdigest()
-    return result
+    """Относительный путь → отпечаток файла; правила отбора — общие с меткой синхронизации."""
+    return sync_state.tree_files(root)
 
 
 def compare(repo_skill: Path, profile_skill: Path) -> dict[str, list[str]]:
@@ -101,7 +93,7 @@ def active_profile() -> Path:
 
 
 def collect(profile: Path) -> dict:
-    """Состояние всех публикуемых скиллов: профиль против клона."""
+    """Состояние всех публикуемых скиллов: профиль против клона, направление — по метке."""
     repo_skills = set(scan(ROOT / "skills"))
     authored, _bundled = profile_authored(profile)
     policy = classify(authored)
@@ -109,21 +101,38 @@ def collect(profile: Path) -> dict:
     published_repo = classify(repo_skills)["published"]
     published_profile = policy["published"]
 
+    marker = sync_state.read_marker(profile)
+    marker_present = marker is not None
+
     skills: dict[str, dict] = {}
     for rel in sorted(published_repo | published_profile):
         if rel not in published_repo:
             skills[rel] = {"status": "not_published"}
             continue
+        repo_skill = ROOT / "skills" / rel
         profile_skill = profile / "skills" / rel
-        if not profile_skill.is_dir():
-            skills[rel] = {"status": "missing_in_profile"}
-            continue
-        delta = compare(ROOT / "skills" / rel, profile_skill)
-        skills[rel] = {"status": "diverged" if any(delta.values()) else "equal", **delta}
+        repo_hash = sync_state.tree_hash(repo_skill)
+        profile_hash = sync_state.tree_hash(profile_skill)
+        marked_hash = sync_state.marker_hash(marker, rel)
+        status = sync_state.classify(repo_hash, profile_hash, marked_hash,
+                                     marker_present=marker_present)
+        info: dict = {
+            "status": status,
+            "repo_hash": repo_hash,
+            "profile_hash": profile_hash,
+            "marker_hash": marked_hash,
+        }
+        if status in {"diverged", "stale"}:
+            info["edited_after_sync"] = sync_state.edited_after_sync(profile_skill, marker)
+        if status == "diverged":
+            info.update(compare(repo_skill, profile_skill))
+        skills[rel] = info
 
     return {
         "skills": skills,
         "unclassified": sorted(policy["unclassified"]),
+        "marker": marker,
+        "marker_present": marker_present,
     }
 
 
@@ -170,8 +179,20 @@ def main() -> int:
     ahead, behind = (counts.split() + ["?", "?"])[:2] if counts else ("?", "?")
 
     pending = [rel for rel, info in skills.items() if info["status"] in {"diverged", "not_published"}]
-    lagging = [rel for rel, info in skills.items() if info["status"] == "missing_in_profile"]
+    lagging = [rel for rel, info in skills.items()
+               if info["status"] in {"missing_in_profile", "stale"}]
+    stale = [rel for rel, info in skills.items() if info["status"] == "stale"]
     in_sync = not pending and not lagging
+    marker = state["marker"]
+    marker_info = {
+        "present": state["marker_present"],
+        "path": str(sync_state.marker_path(profile)),
+        "synced_at": (marker or {}).get("synced_at"),
+        "commit": (marker or {}).get("commit"),
+        "commit_subject": (marker or {}).get("commit_subject"),
+        "version": (marker or {}).get("version"),
+        "skills": len((marker or {}).get("skills") or {}),
+    }
 
     saved: list[str] = []
     if args.save and pending:
@@ -186,8 +207,10 @@ def main() -> int:
         "behind": behind,
         "profile": str(profile),
         "skills": skills,
+        "sync_state": marker_info,
         "pending": pending,
         "lagging": lagging,
+        "stale": stale,
         "unclassified": state["unclassified"],
         "saved": saved,
         "version_repo": distribution_version(ROOT / "distribution.yaml"),
@@ -202,6 +225,15 @@ def main() -> int:
               f"{'чисто' if not porcelain else 'есть незакоммиченное'}, "
               f"{ahead}↑/{behind}↓ к origin/main)")
         print(f"▪ профиль: {profile}")
+        if marker_info["present"]:
+            synced = sync_state.parse_time(marker_info["synced_at"] or "")
+            when = synced.astimezone().strftime("%Y-%m-%d %H:%M") if synced else "?"
+            subject = f" «{marker_info['commit_subject']}»" if marker_info["commit_subject"] else ""
+            print(f"▪ метка синхронизации: {(marker_info['commit'] or '?')[:7]} @ {when}, "
+                  f"версия {marker_info['version']}, скиллов {marker_info['skills']}{subject}")
+        else:
+            print("▪ метки синхронизации нет — направление расхождения неизвестно, "
+                  "расхождения считаются непубликованными правками")
         print(f"▪ публикуемых скиллов: {len(skills)}")
         if not args.quiet:
             for rel, info in skills.items():
@@ -215,6 +247,16 @@ def main() -> int:
             if info["status"] == "missing_in_profile":
                 print("      скилла нет в профиле — профиль отстал, нужен tools/sync.sh")
                 continue
+            if info["status"] == "stale":
+                print("      профиль не менялся с синхронизации, в репозитории версия новее — "
+                      "приедет при tools/sync.sh (перезаписывать нечего)")
+                continue
+            if info.get("edited_after_sync") is True:
+                print("      правка в профиле новее метки синхронизации — публикуйте, "
+                      "обновление профиля её затрёт")
+            elif marker_info["present"]:
+                print("      профиль изменён после синхронизации — публикуйте, "
+                      "обновление профиля правку затрёт")
             for key, label in (("changed", "изменён"), ("only_profile", "только в профиле"),
                                ("only_repo", "только в репозитории")):
                 for name in info.get(key, []):
@@ -235,8 +277,12 @@ def main() -> int:
         if in_sync:
             print("\n✔ профиль и репозиторий синхронны")
         else:
-            print(f"\n⚠ непубликовано: {len(pending)}, профиль отстал: {len(lagging)} — "
-                  "публикация не завершена либо нужно обновление профиля")
+            parts = []
+            if pending:
+                parts.append(f"непубликовано: {len(pending)} (публикуйте через contribute.sh)")
+            if lagging:
+                parts.append(f"профиль отстал: {len(lagging)} (обновите через sync.sh)")
+            print("\n⚠ " + "; ".join(parts))
 
     return 0 if in_sync else 1
 
