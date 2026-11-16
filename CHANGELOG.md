@@ -5,6 +5,7 @@
 
 ## Unreleased
 
+- 2026-11-16 — dist-tst-report-check: новый скилл — проверка материалов модульного тестирования по Методике ВУ (BarniKviks)
 - 2026-11-16 — profile-contribution: маскировка токена в выводе, проверка sync.sh на копии профиля, тело PR и запись в CHANGELOG (mArTi3-github)
 
 ## 1.10.0 — 2026-11-16
