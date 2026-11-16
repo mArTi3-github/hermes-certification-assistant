@@ -5,6 +5,7 @@
 
 ## Unreleased
 
+- 2026-11-16 — profile-contribution: подключение коллеги по SSH-ключу, проверка прав push --dry-run, слои атрибуции push (kristiandemole-spec)
 - 2026-11-16 — sync.sh: остановка только на неопубликованных правках профиля; скилл, которого в профиле ещё нет (состояние `-`), обновление приносит без `--force` (mArTi3-github)
 - 2026-11-16 — profile-contribution: доступ коллеги к публикации — fine-grained недоступен, classic PAT или SSH (mArTi3-github)
 - 2026-11-16 — dist-tst-report-check: новый скилл — проверка материалов модульного тестирования по Методике ВУ (BarniKviks)
