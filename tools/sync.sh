@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # Приём обновлений из репозитория в живой профиль Hermes.
 #
-#   tools/sync.sh              # обновить скиллы, SOUL.md и манифест distribution.yaml
+#   tools/sync.sh              # обновить скиллы, SOUL.md, README.md и манифест distribution.yaml
 #   tools/sync.sh --check      # только показать, что изменится (код 3 — есть непубликованное)
 #   tools/sync.sh --force      # перезаписать, даже если в профиле есть неопубликованные правки
 #   tools/sync.sh --config     # дополнительно перезаписать config.yaml
@@ -125,6 +125,7 @@ else
   cp -a "$PROFILE_DIR/skills/." "$BACKUP/" || true
   if [ -f "$PROFILE_DIR/distribution.yaml" ]; then cp -a "$PROFILE_DIR/distribution.yaml" "$BACKUP/distribution.yaml"; fi
 fi
+if [ -f "$PROFILE_DIR/README.md" ]; then cp -a "$PROFILE_DIR/README.md" "$BACKUP/README.md"; fi
 if [ -f "$PROFILE_DIR/.sync-state.json" ]; then
   cp -a "$PROFILE_DIR/.sync-state.json" "$BACKUP/.sync-state.json"
 fi
@@ -151,6 +152,7 @@ else
   cp -a "$REPO_DIR/skills/." "$PROFILE_DIR/skills/"
 fi
 if [ -f "$REPO_DIR/SOUL.md" ]; then cp -a "$REPO_DIR/SOUL.md" "$PROFILE_DIR/SOUL.md"; fi
+if [ -f "$REPO_DIR/README.md" ]; then cp -a "$REPO_DIR/README.md" "$PROFILE_DIR/README.md"; fi
 
 # --- манифест дистрибутива: версия профиля ----------------------------------
 # publish_check.py берёт версию из distribution.yaml профиля. Если манифест не обновлять,
