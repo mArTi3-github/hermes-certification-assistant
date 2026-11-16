@@ -3,7 +3,11 @@
 
 Отвечает на вопрос «профиль просто отстал или в нём правка?» без метки синхронизации.
 
-    python3 scripts/unexplained_lines.py <клон> <каталог-скилла-профиля> <путь-скилла-в-репозитории>
+    python3 scripts/unexplained_lines.py <клон> <каталог-скилла-профиля> <путь-скилла>
+
+Путь скилла принимается в двух формах — от корня клона (`skills/certification/stand-ftest`)
+и без префикса (`certification/stand-ftest`): префикс `skills/` подставляется сам, если такого
+каталога в репозитории не нашлось.
 
 Пример:
     python3 <скилл>/scripts/unexplained_lines.py ~/work/hermes-certification-assistant \\
@@ -24,6 +28,16 @@ def git(repo: pathlib.Path, *args: str) -> subprocess.CompletedProcess:
     return subprocess.run(["git", "-C", str(repo), *args], capture_output=True, text=True)
 
 
+def resolve_rel(repo: pathlib.Path, rel: str) -> str | None:
+    """Путь скилла от корня клона: принимает и `skills/<категория>/<скилл>`, и без префикса."""
+    rel = rel.strip("/")
+    if (repo / rel).is_dir():
+        return rel
+    if (repo / "skills" / rel).is_dir():
+        return f"skills/{rel}"
+    return None
+
+
 def history_lines(repo: pathlib.Path, rel: str) -> set[str]:
     """Все строки файла во всех коммитах, где он существовал (любая ветка)."""
     revs = git(repo, "log", "--all", "--format=%H", "--", rel).stdout.split()
@@ -41,13 +55,17 @@ def main() -> int:
         return 2
     repo = pathlib.Path(sys.argv[1]).expanduser()
     prof = pathlib.Path(sys.argv[2]).expanduser()
-    rel = sys.argv[3].strip("/")
 
     if not (repo / ".git").exists():
         print(f"✖ не git-репозиторий: {repo}")
         return 2
     if not prof.is_dir():
         print(f"✖ нет каталога скилла в профиле: {prof}")
+        return 2
+    rel = resolve_rel(repo, sys.argv[3])
+    if rel is None:
+        print(f"✖ нет каталога скилла в репозитории: {sys.argv[3]} "
+              f"(искал «{sys.argv[3].strip('/')}» и «skills/{sys.argv[3].strip('/')}»)")
         return 2
 
     total = 0
