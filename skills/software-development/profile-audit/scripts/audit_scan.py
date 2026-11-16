@@ -99,7 +99,9 @@ class Finding:
     previously_resolved: dict | None = None
 
     def finalize(self) -> "Finding":
-        payload = "|".join([self.check, *[f"{e.path}:{e.line}:{e.quote[:200]}"
+        # Отпечаток не включает номер строки: иначе любая правка выше по файлу «воскрешает»
+        # уже разобранную находку, и инкрементальный прогон превращается в полный.
+        payload = "|".join([self.check, *[f"{e.path}:{normalize_quote(e.quote)}"
                                         for e in self.evidence]])
         self.fingerprint = hashlib.sha256(payload.encode()).hexdigest()[:16]
         return self
@@ -137,6 +139,11 @@ def section_of(text: str, index: int) -> tuple[str, int, int]:
 
 def numbered_items(chunk: str) -> list[int]:
     return [int(m.group(1)) for m in NUMBERED.finditer(chunk)]
+
+
+def normalize_quote(text: str) -> str:
+    """Текст улики без привязки к форматированию: пробелы схлопнуты, длина ограничена."""
+    return " ".join(text.split())[:200]
 
 
 def tokens(text: str) -> set[str]:
