@@ -179,6 +179,11 @@ python3 ~/work/hermes-certification-assistant/tools/skill_lint.py
   -i software-development/my-new-skill -m "новый скилл: проверка чего-то"
 ```
 
+Строку политики (`contribute.sh -i` или ручная правка `publish.list`) добавляют **внутрь секции
+`[publish]`**, а не в конец файла: последняя секция — `[private]`, и запись в хвосте молча делает
+скилл непубликуемым. Линт ловит это как «скилл лежит в репозитории, но политика публикации его не
+включает» и причину не называет.
+
 Скиллы вне политики `contribute.sh` показывает отдельно: в терминале он спрашивает по каждому
 `[c]` — перенести в `certification/`, `[t]` — в `certification/tools/`, `[l]` — оставить
 локально, `[Enter]` — пропустить; в неинтерактивном режиме печатает подсказку с командой.
@@ -474,6 +479,8 @@ python3 ~/work/hermes-certification-assistant/tools/release.py <версия>
 | Аудит «изменено» десятки штатных скиллов | сравнение идёт с `.git` профиля (снимок установки), а не с клоном на `origin/main` |
 | Скилл не появился у коллег | они не сделали `sync.sh`; правка есть в `main`, но не в их профиле |
 | Скилл не попал в репозиторий | его категория не публикуется: перенесите в `skills/certification/` (или `certification/tools/`) либо добавьте строку в `[publish]` через `contribute.sh -i <путь>` |
+| `ERROR: … лежит в репозитории, но политика публикации его не включает (publish.list)` | строка дописана в конец `publish.list`, то есть в секцию `[private]`. Перенести её в `[publish]` (или пройти `contribute.sh -i`) и повторить линт. Проверять до PR на копии клона: `cp -a <клон> /tmp/lintcheck`, положить туда скилл и строку политики, `python3 tools/skill_lint.py` — клон при этом не трогается |
+| Тест скилла падает на загрузке модуля: `AttributeError: 'NoneType' object has no attribute '__dict__'` | тест грузит скрипт по пути через `importlib.util.module_from_spec`, а `dataclasses` ищет модуль в `sys.modules`. Перед `exec_module` положить модуль туда: `sys.modules[spec.name] = module` |
 | Скилл пропал после синхронизации | он не был опубликован в `main`; восстановить из `.backup/pre-sync-*` и провести через PR |
 | `Cannot create ref due to creations being restricted` при пуше тега | теги `v*` закрыты ruleset'ом; релиз выпускает владелец через `release.py` под админским токеном |
 | CI: «Версию в PR не меняют» | правку `distribution.yaml` из PR убрать: версию поднимает владелец при релизе |
