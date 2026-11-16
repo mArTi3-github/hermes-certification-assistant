@@ -292,8 +292,10 @@ rm -f "$ASK"
 права Administration эндпоинт отвечает `403 Resource not accessible by personal access token`,
 а мерж при этом работает. Судить по результату операции, а не по доступности проверки.
 
-Перепроверка релиза после `release.py`: `git ls-remote --tags origin` и `GET /releases/latest`
-(`draft: false`). Push тега под ruleset печатает
+Перепроверка релиза после `release.py`: `git ls-remote --tags origin "v<версия>*"` — именно с
+фильтром по версии, потому что в общем списке `v1.14.0` сортируется выше `v1.9.3` и читается как
+отсутствующий (вторая строка с `^{}` — распакованный объект тега, это норма); дальше
+`GET /releases/latest` (`draft: false`). Push тега под ruleset печатает
 `Bypassed rule violations for refs/tags/v<версия>: - Cannot create ref due to creations being restricted`
 — это сообщение об обходе админом, а не отказ; код возврата при этом нулевой.
 
