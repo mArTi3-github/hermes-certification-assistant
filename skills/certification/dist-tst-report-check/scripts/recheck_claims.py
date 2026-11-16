@@ -131,7 +131,16 @@ if no_claim:
     for i in no_claim:
         print(' -', i)
 print(f"\n=== ИТОГО по набору ==={'' if not EXCLUDE else ' (не входят: ' + ', '.join(sorted(EXCLUDE)) + ')'}")
-print(f'файлов {files}, тестов {tests}, строк {cov}/{tot} = {cov / tot * 100:.2f} %, '
-      f'функции {fc}/{ft} = {fc / ft * 100:.2f} %')
-print(f'минимум по компоненту {worst[0]:.2f} % ({worst[1]}), '
-      f'запас к {THRESH:g} % = {worst[0] / THRESH:.2f}x')
+# Итоги печатаются и на неполном комплекте: если у компонента нет coverage-summary.csv
+# или в нём нет строки итогов, делить не на что — это «н/д», а не повод падать.
+lines_cov = (f'строк {cov}/{tot} = {cov / tot * 100:.2f} %' if tot
+             else f'строк {cov}/{tot} = н/д (в материалах нет итогов покрытия строк)')
+func_cov = (f'функции {fc}/{ft} = {fc / ft * 100:.2f} %' if ft
+            else f'функции {fc}/{ft} = н/д (нет профиля покрытия функций)')
+print(f'файлов {files}, тестов {tests}, {lines_cov}, {func_cov}')
+if worst[1] is None:
+    print(f'минимум по компоненту: не определён (нет компонентов с посчитанным покрытием), '
+          f'порог {THRESH:g} %')
+else:
+    print(f'минимум по компоненту {worst[0]:.2f} % ({worst[1]}), '
+          f'запас к {THRESH:g} % = {worst[0] / THRESH:.2f}x')

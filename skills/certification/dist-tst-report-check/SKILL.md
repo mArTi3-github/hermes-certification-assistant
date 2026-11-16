@@ -1,7 +1,7 @@
 ---
 name: dist-tst-report-check
 description: Проверка материалов модульного тестирования по Методике ВУ.
-version: 1.2.0
+version: 1.0.0
 author: Hermes Agent
 license: MIT
 platforms: [linux, macos]
@@ -100,9 +100,9 @@ python3 $S/crosscheck_artifacts.py <work>
 # 4) целостность и полнота комплекта: манифест, битые ссылки index.html, профили покрытия
 python3 $S/package_audit.py <каталог> --threshold 25
 
-# 5) MD -> автономный HTML (общий генератор с DIST.FUZZ)
-python3 ~/.hermes/profiles/<профиль>/skills/certification/dist-fuzz-report-check/scripts/md_report_to_html.py \
-  <отчёт>.md
+# 5) MD -> автономный HTML (общий генератор с DIST.FUZZ; путь считается от $S,
+#    поэтому имя профиля и каталог установки значения не имеют)
+python3 "$(dirname "$S")/../dist-fuzz-report-check/scripts/md_report_to_html.py" <отчёт>.md
 
 # надзаголовок генератор берёт свой (фаззинг) и параметра для него нет — заменить в готовом HTML:
 sed -i 's|<p class="kicker">[^<]*</p>|<p class="kicker">Проверка материалов модульного тестирования · Методика ВУ</p>|' <отчёт>.html
