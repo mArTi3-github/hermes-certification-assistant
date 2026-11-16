@@ -16,6 +16,7 @@ publish_categories: certification
 autonomous-ai-agents/hermes-agent-notes
 productivity/docx
 software-development/profile-contribution
+software-development/profile-audit
 
 # Явно локальные: не публикуются, даже если попадут в публикуемую категорию.
 [private]

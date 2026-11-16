@@ -29,6 +29,9 @@ jobs:
       - name: "Гейт sync.sh: матрица состояний"
         run: bash tools/test_gate_matrix.sh
 
+      - name: "profile-audit: тесты сканера"
+        run: python tools/test_profile_audit.py
+
       - name: Секреты в истории git
         run: python tools/skill_lint.py --history
 
