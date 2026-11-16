@@ -1,7 +1,7 @@
 ---
 name: profile-contribution
 description: "Публикация и скачивание обновлений профиля через агента."
-version: 1.4.0
+version: 1.5.0
 author: mArTi3-github
 license: MIT
 platforms: [linux, macos]
@@ -284,6 +284,11 @@ python3 ~/work/hermes-certification-assistant/tools/publish_policy.py --status -
   заполняется `PATCH /pulls/<n>`, иначе ревьюер разбирает дифф без «что/почему/проверки». Строка
   журнала встаёт первой после `## Unreleased` — вплотную к предыдущим записям: пустую строку после
   неё `contribute.sh` не добавляет (она попадала в раздел версии при релизе).
+- правки самих инструментов (`tools/`, `.github/`) проверяют на **песочном профиле**, а не на
+  живом: `PROFILE_DIR=<каталог-песочницы>` с копией `skills/`. И `sync.sh`, и `contribute.sh`
+  пишут непосредственно в профиль, поэтому отладочный прогон на рабочем каталоге теряет данные.
+  Рецепт песочницы и ожидаемые коды возврата — `references/github-publication.md`, раздел
+  «Проверка `sync.sh` на копии профиля».
 
 ### Заголовок и тело PR
 
@@ -574,6 +579,11 @@ python3 ~/work/hermes-certification-assistant/tools/release.py <версия> --
 python3 ~/work/hermes-certification-assistant/tools/release.py <версия>
 ```
 
+`release.py` пушит `HEAD:main` — ту ветку, на которой сейчас стоит клон, и ветку не проверяет.
+Запускать его только с `main`, предварительно выровняв её (`git -C <клон> switch main && git -C
+<клон> reset --hard origin/main`): с contrib-ветки в `main` уедет её коммит, и тег встанет на
+него. `--dry-run` этого не ловит — он ничего не пушит.
+
 После выпуска проверить: `git ls-remote --tags origin` показывает `v<версия>`, `GET /releases/latest`
 возвращает её же с `draft: false`, `publish_check.py` — версии репозитория и профиля совпадают
 (профиль получает новую версию обычным `sync.sh`).
@@ -631,6 +641,7 @@ python3 ~/work/hermes-certification-assistant/tools/release.py <версия>
 | Метка синхронизации смотрит на чужой коммит или старую версию | профиль копировали с другой машины либо обновляли через `hermes profile update` (он метку не пишет). Содержимое метки не догма: гейт сверяет отпечатки, а не время; после ближайшего `sync.sh` метка перезапишется |
 | После `hermes profile update` пропала правка скилла | нативный апдейт заменяет каталог скилла целиком и бэкапа не делает; вернуть из `.backup/pre-update-*`, если копию сохраняли, иначе править заново — и впредь делать preflight `publish_check.py` перед обновлением |
 | Сообщение `Bypassed rule violations for refs/tags/…` при релизе | это отчёт об обходе ruleset админом, а не отказ: сверить тег через `git ls-remote --tags origin` и релиз через `GET /releases/latest` |
+| `release.py` выпустил не тот коммит / тег встал на чужую ветку | `release.py` пушит `HEAD:main` и ветку не проверяет: запускать только с `main` после `git switch main && git reset --hard origin/main`; с contrib-ветки в `main` уезжает её коммит, а `--dry-run` этого не показывает |
 | В PR нет файлов вне `skills/` (`tools/`, `README.md`, `.github/`) | `contribute.sh` коммитит только `skills` и `CHANGELOG.md`: добавить их в ту же ветку вторым коммитом и запушить скриптом `scripts/push_and_wait_ci.py` (см. строку про `could not read Username`) |
 | Две записи `CHANGELOG.md` склеились в одну строку после правки | в `old_string` инструмента правки попала пустая строка, следующая за `## Unreleased`, и замена съела перевод строки. Вставляя запись в список, не включайте в образец пустую строку после него, а результат проверяйте `sed -n '/^## Unreleased/,+4p'` или `git diff` до коммита |
 | Таймаут на push вместе с ожиданием CI | push обычно уже прошёл: проверить `git ls-remote --heads origin <ветка>`, затем поллить `GET /commits/<sha>/check-runs` короткими итерациями. Скрипт повторно не запускать — второй заход создаст ветку с новым штампом и вторую строку журнала |
