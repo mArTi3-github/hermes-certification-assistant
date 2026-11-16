@@ -36,33 +36,102 @@ collaborator». Ни приглашение в коллабораторы, ни 
 
 ## Подключение коллеги к публикации
 
-Порядок, который не требует ни его токена, ни выдачи admin:
+Порядок, который не требует ни токена коллеги, ни выдачи admin. Локальные шаги (2, 3, 5–8)
+выполняет агент; человеку остаются вставка публичного ключа в GitHub и, если роли write нет, форк.
 
-1. Владелец добавляет человека в Settings → Collaborators and teams с ролью **write**
+1. **Владелец добавляет человека в Settings → Collaborators and teams** с ролью **write**
    (`PUT /repos/<owner>/<repo>/collaborators/<login> {"permission": "push"}`); приглашение
    принимается в письме или на `github.com/notifications`. Пока оно не принято, репозиторий
    отдаёт 404 — это не «нет прав», а не принятый инвайт.
-2. Коллега заводит ключ и кладёт **публичную** часть в свой GitHub-профиль (Settings → SSH and
-   GPG keys):
-   ```bash
-   ssh-keygen -t ed25519 -C "<метка>" -f ~/.ssh/id_ed25519_github
-   chmod 600 ~/.ssh/id_ed25519_github
-   ssh -T git@github.com   # Hi <логин>! You've successfully authenticated…
-   ```
-3. Клон по SSH и личность в нём (имя = GitHub-логин: из него слаг ветки и автор коммита):
-   ```bash
-   git clone git@github.com:<owner>/<repo>.git ~/work/hermes-certification-assistant
-   cd ~/work/hermes-certification-assistant
-   git config user.name "<логин>"
-   git config user.email "<логин>@users.noreply.github.com"
-   ```
-4. Дальше — обычный `contribute.sh`: remote не `https`, поэтому push идёт по ключу, а PR не
-   создаётся (токена нет) — скрипт печатает ссылку `compare`. Тело PR заполняется руками,
-   статус CI смотрят на странице PR (job `skills`).
+2. **Идентичность в клоне — до первого push.** `contribute.sh` берёт слаг ветки
+   (`contrib/<автор>/…`), автора коммита и подпись в `CHANGELOG.md` из `git config user.name`
+   в клоне. Сам профиль идентичность не задаёт: git берёт её из `~/.gitconfig` машины или из
+   локального конфига клона, поэтому на свежей ВМ там либо ничего (git откажется коммитить:
+   `Author identity unknown`), либо дефолт от установки ОС (`administrator@<host>`) — с ним уедет
+   ветка `contrib/administrator/…` и коммит не от того человека. Имя должно совпадать с аккаунтом,
+   под которым идёт push, email — с привязанным к GitHub.
+   Готовые значения даёт API без токена: `GET /users/<login>` → `id` и `name`, noreply-адрес —
+   `<id>+<login>@users.noreply.github.com`. Если `name: null` (профиль не заполнен), в `user.name`
+   пишется логин: он и есть та идентичность, которую видит владелец.
+   `git -C <клон> config user.name "<логин>"` / `config user.email "<noreply>"`.
+3. **Ключ и `~/.ssh/config`.** `ssh-keygen -t ed25519 -C "<метка>" -f ~/.ssh/id_ed25519_github`,
+   затем `chmod 600`. Пассфраза — выбор: без неё агент публикует сам, но ключ на диске равнозначен
+   доступу к аккаунту (допустимо только на персональной ВМ); с ней перед каждой публикацией нужен
+   агент (`eval $(ssh-agent) && ssh-add ~/.ssh/id_ed25519_github`).
+   Приватный файл (без `.pub`) не покидает машину. Файл с нестандартным именем ssh сам для
+   `github.com` не предложит, поэтому сразу блок в `~/.ssh/config` (`600`): `Host github.com` /
+   `HostName github.com` / `User git` / `IdentityFile ~/.ssh/id_ed25519_github` /
+   `IdentitiesOnly yes`. Без него `ssh -T` отвечает `Permission denied (publickey)` при живом
+   ключе на диске, и это читается как «ключ не привязан».
+4. **Публичная часть в GitHub — единственный ручной шаг:** `cat ~/.ssh/id_ed25519_github.pub` →
+   Settings → SSH and GPG keys → New SSH key, тип **Authentication key**. Ключ привязан к
+   аккаунту, а не к репозиторию.
+5. **Проверка ключа:** `ssh -T git@github.com` → `Hi <login>! You've successfully authenticated…`
+   (код возврата при этом 1 — судить по тексту, а не по коду). `Permission denied (publickey)`
+   означает, что ключ не в аккаунте, а не отказ в правах на репозиторий.
+6. **Проверка прав записи — до первой публикации:**
+   `GIT_TERMINAL_PROMPT=0 git -C <клон> push --dry-run origin HEAD:refs/heads/probe-write-access`.
+   Dry-run ничего не создаёт на сервере, но проходит авторизацию и проверку роли, поэтому заменяет
+   «попробуем запушить и посмотрим». Два отказа различать обязательно:
+   `Permission denied (publickey)` — про ключ; `ERROR: Permission to <owner>/<repo>.git denied to
+   <login>` — ключ работает, а прав на запись нет (нужен инвайт с ролью Write либо форк). Публичный
+   репозиторий читается без прав, так что успешный `ls-remote` ничего не значит.
+7. **Remote на SSH, токен оставить:** `remote set-url origin git@github.com:<owner>/<repo>.git`.
+   Схема remote меняет поведение `contribute.sh`: при `https://` и `GITHUB_TOKEN` push идёт через
+   `GIT_ASKPASS`, при `git@` — обычный push по ключу. Если клон уже был на `https://`, этого шага
+   достаточно, клонировать заново не нужно.
+8. **Несколько аккаунтов:** алиас в `~/.ssh/config` (`Host github-work` / `HostName github.com` /
+   `User git` / `IdentityFile …` / `IdentitiesOnly yes`), remote вида
+   `git@github-work:<owner>/<repo>.git`. Без `IdentitiesOnly` ssh перебирает ключи и падает на
+   «too many authentication failures».
+
+Дальше — обычный `contribute.sh`: remote `git@`, поэтому push идёт по ключу, а PR не создаётся
+(токена нет) — скрипт печатает ссылку `compare`, тело PR заполняется руками, статус CI смотрят на
+странице PR (job `skills`).
+
+Без прав на репозиторий ключ ничего не меняет: коллега пушит ветку в свой форк, а PR открывает из
+форка в браузере. Форк проверяется одним запросом без токена: `GET /repos/<login>/<repo>` → `404`
+значит форка нет (создают кнопкой **Fork**). После форка remotes: `origin` →
+`git@github.com:<login>/<repo>.git`, `upstream` → основной репозиторий; `contribute.sh` пушит в
+`origin`, а ссылка `compare` печатается для основного репозитория, поэтому PR из форка оформляется
+адресом `…/compare/main...<login>:<ветка>`.
 
 Без токена недоступны только авто-создание PR, опрос CI через API и релизы; ветка, линт и
 `publish_check.py` работают по SSH так же. Приватный ключ не копируется на другие машины и не
 передаётся в чат; на общей ВМ — пассфраза и ssh-agent.
+
+## Кто пушит: что видит владелец
+
+На вопрос «владелец поймёт, что правки от меня?» отвечайте слоями, а не «да»: доказывает только
+первый.
+
+| Слой | Что видно | Проверяемо |
+|---|---|---|
+| аккаунт, под которым прошли push и PR | `actor` в `GET /repos/<owner>/<repo>/events`, автор PR | да |
+| ветка `contrib/<автор>/…` и поле автора коммита | `git config` клона отправителя | нет: пишется как угодно |
+| `Verified` на коммитах `main` | подпись **GitHub** (`committer: GitHub`, PGP от squash-мержа через веб/API) | да, но не о контрибьюторе |
+| fingerprint и имя ключа | только владельцу аккаунта в его Settings | репозиторию не видны |
+
+Отсюда два следствия, которые надо сказать прямо, а не смягчить:
+
+- ключ удостоверяет **аккаунт**, а не человека: ключ без пассфразы на общей машине позволяет любому
+  с shell пушить под этим аккаунтом, и для владельца это будет выглядеть как автор ключа;
+- зелёная галочка в `main` — не доказательство авторства: `GET /pulls/<n>/commits` показывает у
+  коммитов внутри PR `verified: false, reason: unsigned`, подписан только squash-коммит, который
+  создал сам GitHub.
+
+Если подпись автора правки всё же нужна, тот же ключ добавляют в аккаунт как **Authentication and
+signing** и включают подпись в клоне:
+
+```bash
+git -C <клон> config gpg.format ssh
+git -C <клон> config user.signingkey ~/.ssh/id_ed25519_github.pub
+git -C <клон> config commit.gpgsign true
+```
+
+Тогда каждый коммит ветки получает `Verified` с fingerprint ключа и виден ревьюеру поштучно. Но и
+это доказывает владение ключом, то есть аккаунт: разделять людей надо отдельными аккаунтами, а не
+несколькими ключами одного.
 
 ## Права fine-grained PAT
 
