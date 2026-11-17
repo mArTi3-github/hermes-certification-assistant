@@ -17,6 +17,7 @@ autonomous-ai-agents/hermes-agent-notes
 productivity/docx
 software-development/profile-contribution
 software-development/profile-audit
+software-development/skill-refine
 
 # Явно локальные: не публикуются, даже если попадут в публикуемую категорию.
 [private]

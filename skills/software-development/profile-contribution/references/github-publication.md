@@ -188,6 +188,60 @@ PUT /repos/<owner>/<repo>/branches/main/protection
 Проверка после PUT — повторный GET `/branches/main/protection`: в ответе должны быть
 `require_code_owner_reviews: true` и `required_approving_review_count: 1`.
 
+## Видимость репозитория и план аккаунта
+
+Смена public → private — вопрос модели защиты, а не только приватности: **защита веток и rulesets на
+приватных репозиториях доступны только в GitHub Pro/Team/Enterprise**; на Free приватный репозиторий
+их не имеет. Модель «мержит только владелец, теги `v*` закрыты ruleset'ом» держится ровно на них,
+поэтому вопрос «не помешает ли это коллегам» начинается с плана аккаунта, а не с прав доступа.
+
+План по API не определяется: REST `/user` с fine-grained токеном отдаёт `plan: null`, а
+`GET /users/<login>/settings/billing/actions` — `403`, поэтому план смотрят на
+`github.com/settings/billing`, а фактическое состояние защиты — запросом. Догадка «аккаунт личный,
+значит Free» не годится: цена ошибки — обещание, что защита останется.
+
+Факты собираются одним проходом запросов к `api.github.com` с авторизацией (значение токена в вывод
+не печатается):
+
+- `GET /repos/<owner>/<repo>` — `visibility`, `forks_count`, `security_and_analysis`;
+- `GET /repos/<owner>/<repo>/collaborators` — логины и `role_name`: приватность список не меняет,
+  коллаборатор с `write` продолжает клонировать, пушить ветки и открывать PR как раньше;
+- `GET /repos/<owner>/<repo>/branches/main/protection` и `GET /repos/<owner>/<repo>/rulesets` —
+  что реально включено сейчас (по памяти не отвечать: состав проверок меняется);
+- `GET /repos/<owner>/<repo>/actions/runs?per_page=100` — сумма (`updated_at` − `run_started_at`)
+  по прогонам даёт фактический расход машинного времени вместо оценки «на глазок».
+
+| Что | public | private на Free | private на Pro/Team/Enterprise |
+|---|---|---|---|
+| Защита `main`: ревью, CODEOWNERS, conversation resolution, запрет force-push и удаления | есть | нет | есть |
+| Ruleset на теги `v*` | есть | нет | есть |
+| Secret scanning и push protection | бесплатно | недоступно (у репозитория пользователя — только Enterprise Cloud с EMU) | платно, GitHub Secret Protection |
+| Actions-минуты | бесплатно | из включённых $12/мес; при исчерпании прогоны блокируются, и CI-гейт исчезает молча | из включённых |
+| PR и ветки коллабораторов | работают | работают | работают |
+
+**Неочевидное следствие — транспорт обновления.** `hermes profile update` переклонирует источник,
+записанный при установке (`plan_install(existing_manifest.source)`), а shorthand
+`github.com/<owner>/<repo>` разворачивается в **https**. Креды Hermes берёт только из
+`GITHUB_TOKEN`/`GH_TOKEN`, `gh auth token` и `git credential fill` (`hermes_cli/git_credentials.py`),
+поэтому SSH-ключ коллеги в этом пути не участвует: приватный репозиторий ломает
+`hermes profile install`/`update` у всех, кто ставил по https-инструкции. Источник переписывают на
+`git@github.com:<owner>/<repo>`; у уже установленных профилей provenance менять нечем — нужна
+переустановка с новым источником либо токен в окружении коллеги.
+
+Тот же вопрос к клону владельца: remote `https://` без credential helper читается анонимно только
+пока репозиторий публичный, а `sync.sh` начинается с `git pull` — после переключения нужен ключ или
+helper. `contribute.sh` и `push_and_wait_ci.py` переживают смену: токен подставляется в URL.
+
+**Приватность не отзывает опубликованное.** История и содержимое остаются в клонах коллег, кэшах
+поиска и архивах; форки не удаляются вместе со сменой видимости родителя, поэтому `forks_count`
+смотрят до ответа, а не после.
+
+Порядок, когда решение принято: правка источника установки и кредов (ключ или helper) → переключение
+видимости (`PATCH /repos/<owner>/<repo> {"private": true}` или Settings → Danger zone) → сразу проверка
+`GET .../branches/main/protection` и `GET .../rulesets`: `200` — защита жива, `403/404` — её нет, и это
+говорят прямо, а не предполагают. Без явного «переключаем» видимость не меняется: ответ на такой
+вопрос — таблица последствий и одна строка рекомендации.
+
 ## Push по HTTPS без токена в `.git/config`
 
 Готовый вариант — `scripts/push_and_wait_ci.py <каталог> <owner/repo> [ветка]`: берёт токен из
