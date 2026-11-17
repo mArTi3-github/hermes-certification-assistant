@@ -35,8 +35,8 @@
   считает их используемыми.
 - Удаление защищено на двух путях: детерминированный свип (`agent/curator.py`,
   `apply_automatic_transitions` пропускает `pinned`) и фоновая ревизия
-  (файл `skill_manager_guards.py` в каталоге `tools/` установки Hermes: функция
-  `_background_review_delete_guard` отказывает и для pinned, и для любых non-managed скиллов).
+  (`tools/skill_manager_guards.py::_background_review_delete_guard` отказывает и для pinned,
+  и для любых non-managed скиллов).
 - `archive` — максимум разрушения у куратора; удаления нет, архив лежит в `skills/.archive/`
   и восстанавливается `hermes curator restore <name>`.
 
