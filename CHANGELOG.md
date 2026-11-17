@@ -5,7 +5,7 @@
 
 ## Unreleased
 
-- 2026-11-17 — profile-contribution, hermes-agent-notes: защита от куратора — отсутствие маркера, а не пин; SOUL и README выровнены (mArTi3-github)
+- 2026-11-17 — profile-contribution, hermes-agent-notes: защита от куратора держится отсутствием маркера, а не пином; SOUL и README выровнены; profile-audit 1.0.2 и skill-refine 1.1.1: сканер читает клон, примеры без реальных значений (mArTi3-github)
 
 ## 1.21.1 — 2026-11-17
 
