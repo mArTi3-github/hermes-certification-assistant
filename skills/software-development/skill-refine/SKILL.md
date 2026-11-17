@@ -1,7 +1,7 @@
 ---
 name: skill-refine
 description: "Улучшение скилла: неоднозначности, лишние детали, вопросы."
-version: 1.0.0
+version: 1.0.1
 author: mArTi3-github, Hermes Agent
 license: MIT
 platforms: [linux, macos]
@@ -97,7 +97,7 @@ metadata:
    следующую находку без ответа не переходить.
 
 5. **Записать решение.** На каждую находку — строка в
-   `~/.audit/skill-refine/<скилл>.jsonl`: `ts`, `class`, `where`, `quote`,
+   `<профиль>/.audit/skill-refine/<скилл>.jsonl`: `ts`, `class`, `where`, `quote`,
    `question`, `answer`, `status`, `change`. `status`: `resolved` (правка
    применена или решение «оставить»), `open` (ответа нет), `deferred` (отложено
    осознанно). Каталога нет — создать. Это память между прогонами: повторный
@@ -121,7 +121,7 @@ metadata:
    описывает задачу. Прогнать `python3 <клон>/tools/skill_lint.py`, если скилл
    публикуется, и тесты его `scripts/`, если они правились. Если скилл входит в
    материалы профиля — инкрементальный прогон `profile-audit`
-   (`scripts/audit_scan.py --mode incremental`): переписанный текст мог создать
+   (`audit_scan.py --mode incremental` из скилла `profile-audit`): переписанный текст мог создать
    новое расхождение с README или соседним скиллом.
 
 8. **Напомнить про публикацию, но не публиковать.** Скилл в профиле — рабочая
