@@ -5,6 +5,8 @@
 
 ## Unreleased
 
+- 2026-11-17 — profile-contribution: факты о защите main и режиме мержа — что проверяет protection API, CI на push и version-шаг только в PR, squash сворачивает коммиты; строка «стоит ли переходить на прямой push» (mArTi3-github)
+
 ## 1.20.1 — 2026-11-17
 
 - 2026-11-17 — profile-contribution: push по ролям — коллега пушит обычным `git push` по `git@`-ключу, владельцу нужен `push_and_wait_ci.py` (его `https`-remote без токена); hermes-agent-notes: путь к `skill_manager_guards.py` без двусмысленного `tools/`; README: пути к файлам от корня репозитория (S0fia-M)
