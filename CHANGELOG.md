@@ -5,7 +5,7 @@
 
 ## Unreleased
 
-- 2026-11-17 — audit: пути от корня репозитория и push по ролям (S0fia-M)
+- 2026-11-17 — profile-contribution: push по ролям — коллега пушит обычным `git push` по `git@`-ключу, владельцу нужен `push_and_wait_ci.py` (его `https`-remote без токена); hermes-agent-notes: путь к `skill_manager_guards.py` без двусмысленного `tools/`; README: пути к файлам от корня репозитория (S0fia-M)
 
 ## 1.20.0 — 2026-11-17
 

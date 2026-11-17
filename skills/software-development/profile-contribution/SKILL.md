@@ -297,11 +297,11 @@ python3 ~/work/hermes-certification-assistant/tools/publish_policy.py --status -
   лежит вне этих путей — `tools/`, `README.md`, `.github/`, `publish.list` — остаётся в клоне
   незакоммиченным и в PR не попадает, хотя линт и скрипт отчитаются об успехе. Такие правки
   добавляют в ту же ветку вторым коммитом: `git add <файлы> && git commit -m "<что>"`, а push —
-  `git -C <клон> push -u origin <ветка>`. У владельца, чей remote — `https` с токеном, push идёт
-  скриптом `python3 <скилл>/scripts/push_and_wait_ci.py <клон>
-  mArTi3-github/hermes-certification-assistant <ветка>`: он подставляет токен и ждёт CI, потому что
-  в его remote токена нет и обычный `git push origin HEAD` просит логин. У коллеги с `git@`-remote
-  не нужен ни скрипт, ни токен — ключ уходит сам.
+  `git -C <клон> push -u origin <ветка>`. У коллеги с `git@`-remote этого достаточно: ключ уходит
+  сам, ни скрипт, ни токен не нужны. У владельца remote — `https` без токена, поэтому обычный
+  `git push origin HEAD` просит логин; там push идёт скриптом `python3 <скилл>/scripts/push_and_wait_ci.py
+  <клон> mArTi3-github/hermes-certification-assistant <ветка>` — он подставляет токен в URL и
+  дожидается CI.
   Порядок «сначала скрипт, потом руками» безопасен: squash-мерж свернёт
   ветку в один коммит. PR при этом приходит **без описания** (только заголовок из `-m`): тело
   заполняется `PATCH /pulls/<n>`, иначе ревьюер разбирает дифф без «что/почему/проверки». Строка
