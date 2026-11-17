@@ -5,6 +5,8 @@
 
 ## Unreleased
 
+- 2026-11-17 — profile-contribution: push по ролям — коллега пушит обычным `git push` по `git@`-ключу, владельцу нужен `push_and_wait_ci.py` (его `https`-remote без токена); hermes-agent-notes: путь к `skill_manager_guards.py` без двусмысленного `tools/`; README: пути к файлам от корня репозитория (S0fia-M)
+
 ## 1.20.0 — 2026-11-17
 
 - 2026-11-17 — hermes-agent-notes: заметки о жизненном цикле скиллов и кураторе, скрипт проверки пинов; profile-contribution: правило о пинах долгоживущих скиллов, кураторские заметки едут вторым коммитом того же PR; README: та же формулировка (mArTi3-github)
