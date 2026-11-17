@@ -8,7 +8,7 @@ platforms: [linux, macos]
 metadata:
   hermes:
     tags: [audit, consistency, profile, interview, skills]
-    related_skills: [profile-contribution]
+    related_skills: [profile-contribution, skill-refine]
     requires_tools: [terminal, read_file, patch, write_file, clarify, memory]
 ---
 
@@ -24,6 +24,9 @@ metadata:
 - Профиль правили несколько человек и их агентов, и правила начали расходиться.
 - Перед релизом: убедиться, что README и скиллы не врут про текущее состояние.
 - После слияния чужого PR: не принёс ли он утверждений, конфликтующих с уже написанным.
+- Не для качества одного скилла изнутри (частности вместо правила, двусмысленность,
+  лишние уточнения) — это `skill-refine`; аудит сравнивает редакции между файлами,
+  а не судит одну.
 
 ## Идея
 
