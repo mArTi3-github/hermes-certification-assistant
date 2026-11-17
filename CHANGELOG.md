@@ -5,6 +5,8 @@
 
 ## Unreleased
 
+## 1.20.2 — 2026-11-17
+
 - 2026-11-17 — profile-contribution: факты о защите main и режиме мержа — что проверяет protection API, CI на push и version-шаг только в PR, squash сворачивает коммиты; строка «стоит ли переходить на прямой push» (mArTi3-github)
 
 ## 1.20.1 — 2026-11-17
