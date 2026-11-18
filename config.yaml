@@ -1168,6 +1168,11 @@ skills:
     - xurl
     - youtube-content
 agent:
+  # Ожидание ответа человека на карточку вопросов (clarify), секунды. 0 = ждать без
+  # ограничения. По умолчанию 90, и недописанный ответ уезжает пустым: человек не успевает
+  # дочитать варианты. В этом профиле необратимых прогонов без человека нет, ждать можно.
+  clarify_timeout: 0
+
   # Maximum tool-calling iterations per conversation (default: 500)
   # Higher = more room for complex tasks, but costs more tokens
   # Recommended: 20-30 for focused tasks, 50-100 for open exploration

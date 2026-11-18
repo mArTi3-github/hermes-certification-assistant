@@ -115,3 +115,27 @@ performance.getEntriesByType('resource').map(e => e.name).filter(n => /\/api\//.
 - **Колонка «Статус» в списке задач — не результат.** Запуск с ошибкой за 0 с
   показывается как «Завершена» с предупреждающим значком. Всегда подтверждать
   через `runs.errorStatus`.
+
+## 7. Кадр панели DevTools («Исследовать элемент»)
+
+Headless-браузер панель не рисует: кадр получается только в headed-Chrome под
+виртуальным X-сервером.
+
+1. `Xvfb :99 -screen 0 3200x1900x24`; затем обёртка-скрипт, где **внутри**
+   экспортируется `DISPLAY=:99`, и запуск
+   `chrome --no-sandbox --ignore-certificate-errors --ozone-platform=x11
+   --window-size=3000,1700 --auto-open-devtools-for-tabs --remote-debugging-port=9222 <url>`.
+   Без обёртки фоновый запуск теряет `DISPLAY`, и Chrome молча уходит в headless.
+2. Оконного менеджера нет: `xdotool windowactivate` падает, работать через
+   `windowfocus`.
+3. Значения полей заливать скриптом по CDP (`node` + `ws` из
+   `hermes-agent/node_modules/ws` на `/json/list` порта 9222): `xdotool type`
+   не срабатывает, пока включён режим инспекции.
+4. Выбор узла — `ctrl+shift+c`, клик по полю, затем увести мышь (иначе в кадр
+   попадёт тултип). Масштаб панели — `ctrl+shift+=` после клика внутрь DevTools.
+5. Снимок — `import -window root` + `convert -crop`; в отчёт кадр ставится
+   обрезанным по панели и шириной ~90–120 мм, иначе значение атрибута
+   `type="password"` нечитаемо в печати.
+
+`DOM.highlightNode` через CDP — плохая замена: подсказка рисуется в координатах
+устройства и при `captureScreenshot(scale>1)` разъезжается.
