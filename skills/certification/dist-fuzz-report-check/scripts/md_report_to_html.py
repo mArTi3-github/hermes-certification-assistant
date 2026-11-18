@@ -36,10 +36,12 @@ toc = md.toc
 
 # раскраска ячеек с вердиктами (жирный в ячейке не обязателен)
 VERDICT_CLASSES = (
-    ("соответствует частично", "v-warn"),
-    ("соответствует по", "v-mixed"),
+    ("не применимо", "v-mixed"),
     ("не соответствует", "v-bad"),
     ("не подтверждено", "v-warn"),
+    ("соответствует частично", "v-warn"),
+    ("соответствует по", "v-mixed"),
+    ("ложное срабатывание", "v-good"),
     ("соответствует", "v-good"),
 )
 
@@ -64,8 +66,6 @@ def paint_cell(m):
             break
         if text.startswith(prefix):
             cls = klass
-            if klass == "v-mixed" and "не подтверждено" not in text:
-                cls = "v-good"
             break
     if not cls:
         return m.group(0)
@@ -150,6 +150,7 @@ pre code{background:none;border:0;color:inherit;padding:0;font-size:12.8px;}
 table{border-collapse:collapse;width:100%;margin:18px 0 8px;font-size:14.2px;background:#fff;}
 table.wide{font-size:12.3px;}
 table.wide th,table.wide td{padding:6px 7px;}
+td:first-child code{white-space:nowrap;}
 td.num{text-align:right;font-variant-numeric:tabular-nums;white-space:nowrap;}
 th,td{border:1px solid var(--line);padding:9px 11px;vertical-align:top;text-align:left;}
 th{background:#eef3f8;font-weight:700;color:#1b2a3b;font-size:13.4px;}
