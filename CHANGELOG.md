@@ -5,6 +5,8 @@
 
 ## Unreleased
 
+- 2026-11-18 — profile-contribution: третий аргумент push_and_wait_ci.py — ветка на origin (mArTi3-github)
+
 ## 1.25.0 — 2026-11-18
 
 - 2026-11-18 — dist-fuzz-report-check: пункты WuppieFuzz в Pitfalls; interview: таймаут clarify_timeout и проверка; profile-contribution: подстановка токена одной командой, строка журнала CHANGELOG (mArTi3-github)
