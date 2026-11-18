@@ -5,6 +5,9 @@
 
 ## Unreleased
 
+- 2026-11-18 — interview: общий протокол сессии вопросов; task-clarification: уточнение задачи до начала работы; clarify_timeout 0 (mArTi3-github)
+- 2026-11-18 — interview: общий протокол сессии вопросов вынесен из profile-audit и skill-refine (одна порция за раз, рекомендуемый вариант первым, пропуск ≠ таймаут, интерфейс без карточек — текст); task-clarification: уточнение задачи до начала работы (слоты брифа, порог «два прочтения», бриф «понимаю так»); SOUL.md: триггер уточнения; config.yaml: clarify_timeout 0 — карточка ждёт ответа без таймера (mArTi3-github)
+
 ## 1.22.0 — 2026-11-17
 
 - 2026-11-17 — profile-contribution, hermes-agent-notes: защита от куратора держится отсутствием маркера, а не пином; SOUL и README выровнены; profile-audit 1.0.2 и skill-refine 1.1.1: сканер читает клон, примеры без реальных значений (mArTi3-github)
