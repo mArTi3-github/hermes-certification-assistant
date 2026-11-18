@@ -5,7 +5,8 @@
     python3 scripts/tst_dataset.py <каталог DIST.TST> --out <work>/dataset.json
     python3 scripts/recheck_claims.py <work> [--exclude КОМПОНЕНТ ...] [--threshold 25]
 
-Ожидает в <work>: dataset.json и подкаталог mat/ с копией материалов.
+Ожидает в <work>: dataset.json и материалы — в подкаталоге mat/ (обычная
+раскладка) либо прямо в <work>, если mat/ нет.
 Сверяет по каждому компоненту набора: тесты / успешные / упавшие /
 пропущенные, покрытие строк (covered/total/%), ветвлений, функций — заявление
 readme.txt против junit.xml и coverage-summary.csv/.json. Печатает расхождения
@@ -23,6 +24,8 @@ ap.add_argument('--exclude', action='append', default=[],
 ap.add_argument('--threshold', type=float, default=25.0, help='порог покрытия в процентах')
 a = ap.parse_args()
 W, EXCLUDE, THRESH = a.work, set(a.exclude), a.threshold
+# материалы могут лежать как <work>/mat/<компонент>, так и прямо в <work>
+MAT = os.path.join(W, 'mat') if os.path.isdir(os.path.join(W, 'mat')) else W
 D = json.load(open(os.path.join(W, 'dataset.json'), encoding='utf-8'))
 
 
@@ -59,7 +62,7 @@ issues, no_claim = [], []
 for m, r in D['modules'].items():
     if m in EXCLUDE:
         continue
-    t = rd(os.path.join(W, 'mat', m, 'readme.txt'))
+    t = rd(os.path.join(MAT, m, 'readme.txt'))
     j = r['junit'] or {}
     total = (r['cov_csv'] or {}).get('total') or {}
     base = r['baseline_covjson'] or {}
@@ -67,7 +70,7 @@ for m, r in D['modules'].items():
     root = r['root_covjson'] or {}
 
     # --- заявления readme (формулировки у компонентов разные)
-    c_tests = g(r'Тестов выполнено:\s*([\d\s]+)', t, int)
+    c_tests = g(r'(?:Тест(?:ов|-кейсов)?(?:\s+выполнено)?|Всего тестов)\s*:\s*([\d\s]+)', t, int)
     c_fail = g(r'упавших\s*:\s*(\d+)', t, int)
     c_skip = g(r'пропущен\w*\s*:\s*(\d+)', t, int)   # «пропущено» и «пропущенных»
     m_lines = re.search(r'Покрытие строк\s*:\s*(\d+)\s*из\s*(\d+)\s*=\s*([\d,.]+)\s*%', t, re.I)
@@ -83,7 +86,7 @@ for m, r in D['modules'].items():
     c_fn = g(r'Покрытие функций\s*:\s*([\d,.]+)\s*%', t)
 
     if c_tests is None:
-        no_claim.append(f"{m}: «Тестов выполнено» в readme не найдено в ожидаемой формулировке")
+        no_claim.append(f"{m}: число тестов в readme не найдено в ожидаемой формулировке («Тестов выполнено» / «Тестов» / «Тест-кейсов выполнено»)")
 
     # --- факты
     f_tests, f_fail, f_skip = j.get('tests'), j.get('failures'), j.get('skipped')

@@ -27,6 +27,8 @@ ap.add_argument('--exclude', action='append', default=[],
 ap.add_argument('--threshold', type=float, default=25.0, help='порог покрытия в процентах')
 a = ap.parse_args()
 W, EXCLUDE, THRESH = a.work, set(a.exclude), a.threshold
+# материалы могут лежать как <work>/mat/<компонент>, так и прямо в <work>
+MAT = os.path.join(W, 'mat') if os.path.isdir(os.path.join(W, 'mat')) else W
 D = json.load(open(os.path.join(W, 'dataset.json'), encoding='utf-8'))
 
 
@@ -56,7 +58,7 @@ bad = []
 for m, r in D['modules'].items():
     if m in EXCLUDE:
         continue
-    env = rd(os.path.join(W, 'mat', m, 'results', 'environment.txt'))
+    env = rd(os.path.join(MAT, m, 'results', 'environment.txt'))
     date = (re.search(r'Дата запуска:\s*(\S+)', env) or [None, '—'])[1][:10]
     arch = (re.search(r'Архитектура:\s*(\S+)', env) or [None, '—'])[1]
     j = r['junit'] or {}
@@ -71,7 +73,7 @@ for m, r in D['modules'].items():
         bad.append(f"{m}: baseline {bc_pct} % != sensors {sc_pct} %")
 
     # junit: атрибуты tests по каждому набору против СВОИХ <testcase>
-    p = os.path.join(W, 'mat', m, 'results', 'junit.xml')
+    p = os.path.join(MAT, m, 'results', 'junit.xml')
     if os.path.exists(p):
         try:
             root = ET.parse(p).getroot()
