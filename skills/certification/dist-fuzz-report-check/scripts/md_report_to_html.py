@@ -15,6 +15,8 @@ import argparse
 ap = argparse.ArgumentParser(description="Markdown-отчёт -> автономный HTML с оглавлением и подсветкой вердиктов")
 ap.add_argument("src")
 ap.add_argument("dst", nargs="?")
+ap.add_argument("--kicker", default="Проверка материалов фаззинг-тестирования · Методика ВУ")
+ap.add_argument("--footer", default="Отчёт сформирован автоматически по материалам архива <code>sflow-28.1-cert.zip</code>; все числовые значения получены разбором файлов материалов (fuzzer_stats, plot_data, журналы фаззеров, HTML-отчёты gcovr, образцы зависаний), а не перенесены из сопроводительного Readme.")
 a = ap.parse_args()
 SRC = a.src
 DST = a.dst or (os.path.splitext(SRC)[0] + ".html")
@@ -32,27 +34,37 @@ md = markdown.Markdown(extensions=["tables", "fenced_code", "sane_lists", "attr_
 body = md.convert(body_md)
 toc = md.toc
 
-# раскраска вердиктов в сводной таблице
-def paint(m):
-    verdict = m.group(1)
-    if verdict == "Соответствует частично":
-        cls = "v-warn"
-    elif verdict == "Соответствует":
-        cls = "v-good"
-    elif verdict == "Не соответствует":
-        cls = "v-bad"
-    elif verdict == "Не подтверждено":
-        cls = "v-warn"
-    else:
-        cls = ""
-    return '<td class="%s"><strong>%s' % (cls, verdict)
+# раскраска ячеек с вердиктами (жирный в ячейке не обязателен)
+VERDICT_CLASSES = (
+    ("соответствует частично", "v-warn"),
+    ("соответствует по", "v-mixed"),
+    ("не соответствует", "v-bad"),
+    ("не подтверждено", "v-warn"),
+    ("соответствует", "v-good"),
+)
 
-body = re.sub(r'<td><strong>(Соответствует частично|Соответствует|Не соответствует|Не подтверждено)',
-              paint, body)
-# смешанный вердикт по п.5
-body = re.sub(r'(<td class="v-good"><strong>Соответствует по подпункту «а»</strong>[^<]*?по подпункту «б» не подтверждено)',
-              r'<td class="v-mixed"><strong>Соответствует по подпункту «а»</strong> (по подпункту «б» не подтверждено)',
-              body)
+def paint_cell(m):
+    attrs, inner = m.group(1), m.group(2)
+    cls = ""
+    text = re.sub(r"\s+", " ", re.sub(r"<[^>]+>", " ", inner)).strip().casefold()
+    for prefix, klass in VERDICT_CLASSES:
+        if cls:
+            break
+        if text.startswith(prefix):
+            cls = klass
+            if klass == "v-mixed" and "не подтверждено" not in text:
+                cls = "v-good"
+            break
+    if not cls:
+        return m.group(0)
+    if 'class="' in attrs:
+        attrs = re.sub(r'class="([^"]*)"', lambda mm: 'class="%s %s"' % (mm.group(1), cls), attrs)
+    else:
+        attrs = attrs + ' class="%s"' % cls
+    return "<td%s>%s</td>" % (attrs, inner)
+
+
+body = re.sub(r"<td([^>]*)>(.*?)</td>", paint_cell, body, flags=re.S)
 
 pairs = []
 for item in meta:
@@ -87,7 +99,7 @@ body = re.sub(r"(<table>.*?</table>)", wrap_table, body, flags=re.S)
 CSS = """
 :root{
   --ink:#1b2430; --muted:#5f6b7a; --line:#d8dee7; --bg:#ffffff; --soft:#f4f7fa;
-  --accent:#1f4e79; --good:#1c6b3c; --goodbg:#e8f4ec; --warn:#8a5a00; --warnbg:#fdf3e2;
+  --accent:#1f4e79; --good:#1c6b3c; --goodbg:#e8f4ec; --warn:#7a5200; --warnbg:#fdf0cc;
   --bad:#a3231c; --badbg:#fbeceb; --mixed:#5b4593; --mixedbg:#f0ecf9;
 }
 *{box-sizing:border-box}
@@ -136,13 +148,13 @@ th{background:#eef3f8;font-weight:700;color:#1b2a3b;font-size:13.4px;}
 tbody tr:nth-child(even){background:#fafcfe;}
 td[align="right"],th[align="right"],td:has(> :only-child) {font-variant-numeric:tabular-nums;}
 td.v-good{background:var(--goodbg);border-left:4px solid var(--good);}
-td.v-good strong{color:var(--good);}
+td.v-good,td.v-good strong{color:var(--good);font-weight:600;}
 td.v-warn{background:var(--warnbg);border-left:4px solid var(--warn);}
-td.v-warn strong{color:var(--warn);}
+td.v-warn,td.v-warn strong{color:var(--warn);font-weight:600;}
 td.v-bad{background:var(--badbg);border-left:4px solid var(--bad);}
-td.v-bad strong{color:var(--bad);}
+td.v-bad,td.v-bad strong{color:var(--bad);font-weight:600;}
 td.v-mixed{background:var(--mixedbg);border-left:4px solid var(--mixed);}
-td.v-mixed strong{color:var(--mixed);}
+td.v-mixed,td.v-mixed strong{color:var(--mixed);font-weight:600;}
 blockquote{margin:14px 0;padding:10px 16px;border-left:4px solid var(--accent);background:var(--soft);color:#33465c;}
 footer{padding:22px 56px 34px;border-top:1px solid var(--line);color:var(--muted);font-size:12.5px;background:#fafbfd;}
 @media print{
@@ -174,7 +186,7 @@ HTML = """<!DOCTYPE html>
 <body>
 <div class="page">
   <header class="doc">
-    <p class="kicker">Проверка материалов фаззинг-тестирования · Методика ВУ</p>
+    <p class="kicker">{kicker}</p>
     <h1>{title}</h1>
     {meta}
   </header>
@@ -182,12 +194,13 @@ HTML = """<!DOCTYPE html>
     <nav class="toc"><h2>Содержание</h2>{toc}</nav>
     <main>{body}</main>
   </div>
-  <footer>Отчёт сформирован автоматически по материалам архива <code>sflow-28.1-cert.zip</code>; все числовые значения получены разбором файлов материалов (fuzzer_stats, plot_data, журналы фаззеров, HTML-отчёты gcovr, образцы зависаний), а не перенесены из сопроводительного Readme.</footer>
+  <footer>{footer}</footer>
 </div>
 </body>
 </html>
 """
 
-out = HTML.format(title=title, css=CSS, meta=meta_html, toc=toc, body=body)
+out = HTML.format(title=title, css=CSS, meta=meta_html, toc=toc, body=body,
+                   kicker=a.kicker, footer=a.footer)
 open(DST, "w", encoding="utf-8").write(out)
 print("written:", DST, len(out), "chars")
