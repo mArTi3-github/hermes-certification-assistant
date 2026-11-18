@@ -26,7 +26,7 @@ Hermes перестают приезжать. Всё, чего нет в сто�
 | Когда начинать новую сессию, что переживает компакцию, реальный размер сессии на диске | `references/context-and-compression.md` |
 | Как дотянуться до бэкенда с другой машины, выбор поверхности (CLI, desktop, gateway) | `references/surfaces-and-remote-desktop.md` |
 | Раздача Hermes и скиллов коллегам, дистрибутивы профилей, несколько пользователей на одном хосте | `references/team-and-profile-sharing.md` |
-| Долгоживущие скиллы: защита от архивации куратором (pin/lock), где хранить правило, проверка | `references/skill-lifecycle-and-curator.md` + `scripts/verify_skill_pins.py` |
+| Долгоживущие скиллы: что куратор видит, защита от архивации отсутствием маркера `created_by` (не пином), где хранить правило, проверка | `references/skill-lifecycle-and-curator.md` + `scripts/verify_skill_pins.py` |
 
 ## Правила
 
