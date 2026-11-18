@@ -43,8 +43,20 @@ VERDICT_CLASSES = (
     ("соответствует", "v-good"),
 )
 
+# метки цвета для ячеек без вердикта: @@good@@, @@warn@@, @@bad@@, @@mixed@@
+MARKER_RE = re.compile(r"^(\s*(?:<[^>]+>\s*)*)@@(good|warn|bad|mixed)@@\s*", re.S)
+
+def set_class(attrs, cls):
+    if 'class="' in attrs:
+        return re.sub(r'class="([^"]*)"', lambda mm: 'class="%s %s"' % (mm.group(1), cls), attrs)
+    return attrs + ' class="%s"' % cls
+
 def paint_cell(m):
     attrs, inner = m.group(1), m.group(2)
+    mk = MARKER_RE.match(inner)
+    if mk:
+        # метка из HTML убирается, иначе она видна читателю заключения
+        return "<td%s>%s%s</td>" % (set_class(attrs, "v-" + mk.group(2)), mk.group(1), inner[mk.end():])
     cls = ""
     text = re.sub(r"\s+", " ", re.sub(r"<[^>]+>", " ", inner)).strip().casefold()
     for prefix, klass in VERDICT_CLASSES:
@@ -57,11 +69,7 @@ def paint_cell(m):
             break
     if not cls:
         return m.group(0)
-    if 'class="' in attrs:
-        attrs = re.sub(r'class="([^"]*)"', lambda mm: 'class="%s %s"' % (mm.group(1), cls), attrs)
-    else:
-        attrs = attrs + ' class="%s"' % cls
-    return "<td%s>%s</td>" % (attrs, inner)
+    return "<td%s>%s</td>" % (set_class(attrs, cls), inner)
 
 
 body = re.sub(r"<td([^>]*)>(.*?)</td>", paint_cell, body, flags=re.S)
