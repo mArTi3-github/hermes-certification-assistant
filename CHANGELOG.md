@@ -5,6 +5,8 @@
 
 ## Unreleased
 
+## 1.25.0 — 2026-11-18
+
 - 2026-11-18 — dist-fuzz-report-check: пункты WuppieFuzz в Pitfalls; interview: таймаут clarify_timeout и проверка; profile-contribution: подстановка токена одной командой, строка журнала CHANGELOG (mArTi3-github)
 - 2026-11-18 — dist-fuzz-report-check: карта артефактов Jazzer.js/libFuzzer, формат заключения в пять разделов и шаблон под него, одна таблица требований с колонкой «Обоснование», `--kicker`/`--footer` и раскраска вердиктов в HTML (включая метки `@@good@@`/`@@warn@@`/`@@bad@@`/`@@mixed@@` для числовых ячеек), зелёный вердикт при выполнении любого подпункта п. 5 (BarniKviks)
 
