@@ -15,9 +15,11 @@ publish_categories: certification
 [publish]
 autonomous-ai-agents/hermes-agent-notes
 productivity/docx
+software-development/interview
 software-development/profile-contribution
 software-development/profile-audit
 software-development/skill-refine
+software-development/task-clarification
 
 # Явно локальные: не публикуются, даже если попадут в публикуемую категорию.
 [private]
