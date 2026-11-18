@@ -5,7 +5,8 @@
     python3 scripts/tst_dataset.py <каталог DIST.TST> --out <work>/dataset.json
     python3 scripts/recheck_claims.py <work> [--exclude КОМПОНЕНТ ...] [--threshold 25]
 
-Ожидает в <work>: dataset.json и подкаталог mat/ с копией материалов.
+Ожидает в <work>: dataset.json и материалы — в подкаталоге mat/ (обычная
+раскладка) либо прямо в <work>, если mat/ нет.
 Сверяет по каждому компоненту набора: тесты / успешные / упавшие /
 пропущенные, покрытие строк (covered/total/%), ветвлений, функций — заявление
 readme.txt против junit.xml и coverage-summary.csv/.json. Печатает расхождения
