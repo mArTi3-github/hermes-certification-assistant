@@ -5,6 +5,8 @@
 
 ## Unreleased
 
+## 1.25.1 — 2026-11-18
+
 - 2026-11-18 — profile-contribution: третий аргумент push_and_wait_ci.py — ветка на origin (mArTi3-github)
 
 ## 1.25.0 — 2026-11-18
