@@ -124,6 +124,13 @@ def current_version() -> str:
     return found.group(1) if found else "0.0.0"
 
 
+def sh(*args: str) -> None:
+    """git в клоне; ошибки не глотаем — без main релиз выпускать нельзя."""
+    res = subprocess.run(["git", "-C", str(ROOT), *args], capture_output=True, text=True)
+    if res.returncode:
+        raise SystemExit(f"git {' '.join(args)}: {res.stderr.strip()}")
+
+
 def run(*args: str) -> int:
     print(f"  $ {' '.join(args)}", flush=True)
     return subprocess.call(list(args), cwd=ROOT)
@@ -204,6 +211,19 @@ def main(argv: list[str] | None = None) -> int:
             print(f"  ✖ мерж не удался: {res.get('message', code)}")
 
     if merged and not args.dry_run and not args.no_release:
+        # release.py пушит HEAD:main — с contrib-ветки в main уехал бы её коммит.
+        # Перед релизом клон обязан стоять на свежей main, иначе лучше остановиться.
+        dirty = subprocess.run(["git", "-C", str(ROOT), "status", "--porcelain"],
+                               capture_output=True, text=True).stdout.strip()
+        if dirty:
+            print("⚠ в клоне есть незакоммиченное — релиз и sync не запускаю:")
+            print("\n".join(f"    {line}" for line in dirty.splitlines()[:5]))
+            print("  Закоммитьте или уберите в stash и выпустите версию: "
+                  f"python3 tools/release.py {bump(current_version(), args.bump)}")
+            return 1
+        sh("fetch", "-q", "origin")
+        sh("switch", "-q", "main")
+        sh("reset", "-q", "--hard", "origin/main")
         old = current_version()
         new = bump(old, args.bump)
         print(f"▪ релиз: {old} → {new} (на {len(merged)} PR)")
