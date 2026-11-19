@@ -5,6 +5,8 @@
 
 ## Unreleased
 
+- 2026-11-19 — profile-contribution: git config в worktree пишет общий конфиг клона; reset --hard и незакоммиченное (mArTi3-github)
+
 ## 1.29.0 — 2026-11-19
 
 - 2026-11-19 — profile-contribution: publish.sh и accept.py — одна команда на публикацию и приём, трёхстороннее слияние по метке синхронизации (mArTi3-github)
