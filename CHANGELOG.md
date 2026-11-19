@@ -5,6 +5,8 @@
 
 ## Unreleased
 
+- 2026-11-19 — profile-contribution: publish.sh и accept.py — одна команда на публикацию и приём, трёхстороннее слияние по метке синхронизации (mArTi3-github)
+
 ## 1.28.1 — 2026-11-19
 
 - 2026-11-19 — profile-contribution: прогон скриптов ветки из worktree, фикс в ветке автора, замер вёрстки с шириной окна (mArTi3-github)
