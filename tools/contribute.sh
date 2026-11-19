@@ -1,6 +1,7 @@
 #!/usr/bin/env bash
-# Публикация правок профиля: копирует скиллы из живого профиля в клон репозитория,
-# прогоняет линт, коммитит в отдельную ветку и (если есть GITHUB_TOKEN) открывает PR.
+# Публикация правок профиля: обновляет клон до головы origin/main, сливает правки профиля
+# с апстримом по трём версиям (база — метка синхронизации), прогоняет линт, коммитит
+# в отдельную ветку и (если есть GITHUB_TOKEN) открывает PR.
 #
 #   tools/contribute.sh -m "stand-ftest: уточнил проверку блокировок"
 #   tools/contribute.sh -i security/my-new-skill -m "новый скилл: ..."
@@ -81,19 +82,65 @@ else
 fi
 say "▪ бэкап скиллов профиля: $BACKUP"
 
-# --- сбор набора скиллов по политике publish.list --------------------------
-# Публикуется ровно то, что перечислено в [publish]; всё прочее остаётся в профиле.
-SYNCED=0
-while IFS= read -r rel; do
-  [ -n "$rel" ] || continue
-  if [ -d "$PROFILE_DIR/skills/$rel" ]; then
-    copy_tree "$PROFILE_DIR/skills/$rel" "$REPO_DIR/skills/$rel"
-    say "  ↻ $rel"
-    SYNCED=$((SYNCED + 1))
+# --- свежая база: ветка всегда от головы origin/main --------------------------
+# Раньше ветка создавалась от того состояния, в котором стоял клон: если main ушёл вперёд,
+# PR молча откатывал чужие правки. Теперь база обновляется здесь, до слияния.
+# Незакоммиченное в клоне (tools/, README.md, .github/, свой скрипт) reset --hard снёс бы молча:
+# убираем в stash и возвращаем после обновления базы.
+STASHED=0
+if [ -n "$(git -C "$REPO_DIR" status --porcelain 2>/dev/null)" ]; then
+  say "▪ в клоне есть незакоммиченное — временно в stash"
+  git -C "$REPO_DIR" stash push -u -q -m "publish.sh $(date +%Y%m%d-%H%M%S)" \
+    || die "git stash не удался: уберите незакоммиченное вручную"
+  STASHED=1
+fi
+
+if git -C "$REPO_DIR" remote get-url origin >/dev/null 2>&1; then
+  PREV="$(git -C "$REPO_DIR" rev-parse --abbrev-ref HEAD || echo '?')@$(git -C "$REPO_DIR" rev-parse --short HEAD || echo '?')"
+  git -C "$REPO_DIR" fetch -q origin || die "git fetch не удался: проверьте доступ к origin"
+  if git -C "$REPO_DIR" rev-parse -q --verify "origin/$BASE" >/dev/null; then
+    git -C "$REPO_DIR" switch -q "$BASE" 2>/dev/null || git -C "$REPO_DIR" switch -q -c "$BASE" --track "origin/$BASE"
+    git -C "$REPO_DIR" reset -q --hard "origin/$BASE"
+    say "▪ база обновлена: $PREV → $BASE@$(git -C "$REPO_DIR" rev-parse --short HEAD)"
   else
-    say "  · $rel — в профиле отсутствует, в репозитории остаётся текущая версия"
+    say "⚠ ветки origin/$BASE нет — база остаётся локальной ($PREV)"
   fi
-done < <(python3 "$REPO_DIR/tools/publish_policy.py" --published --profile "$PROFILE_DIR")
+else
+  say "⚠ remote origin не настроен: база не обновлена, слияние идёт с локальным состоянием"
+fi
+
+if [ "$STASHED" -eq 1 ]; then
+  if git -C "$REPO_DIR" stash pop -q 2>/dev/null; then
+    say "▪ незакоммиченное возвращено из stash"
+  else
+    die "не удалось вернуть незакоммиченное: правки в stash ($(git -C "$REPO_DIR" stash list | head -1)).
+  Разберите вручную (git stash show -p), затем повторите"
+  fi
+fi
+
+# --- клон не источник скиллов: skills/ должен совпадать с main ---------------
+if [ -n "$(git -C "$REPO_DIR" status --porcelain -- skills 2>/dev/null)" ]; then
+  say "⚠ в клоне есть правки skills/ — источник правок скиллов профиль, а не клон (правило 13):"
+  git -C "$REPO_DIR" status --porcelain -- skills | sed 's/^/    /'
+  die "перенесите правки в профиль и верните клон к main:
+  git -C \"$REPO_DIR\" checkout -- skills && git -C \"$REPO_DIR\" clean -fdq skills"
+fi
+
+# --- план публикации: слияние профиля с main по трём версиям ----------------
+# Публикуется ровно то, что перечислено в [publish]; всё прочее остаётся в профиле.
+# База слияния — коммит из метки синхронизации: отставший профиль больше не удаляет
+# чужие правки, а конфликт останавливает публикацию до записи в клон.
+say ""
+say "▪ план публикации:"
+PLAN_RC=0
+python3 "$REPO_DIR/tools/publish_plan.py" --profile "$PROFILE_DIR" --repo "$REPO_DIR" \
+  --apply --quiet || PLAN_RC=$?
+case "$PLAN_RC" in
+  0) ;;
+  3) die "конфликт слияния: обе стороны правили одни и те же файлы (список выше).
+  Разрешите вручную или публикуйте правку меньшим куском. В клон ничего не записано" ;;
+  *) die "план публикации не построен (код $PLAN_RC)" ;;
+esac
 
 UNCLASSIFIED="$(python3 "$REPO_DIR/tools/publish_policy.py" --profile "$PROFILE_DIR" --unclassified 2>/dev/null || true)"
 if [ -n "$UNCLASSIFIED" ]; then
@@ -146,7 +193,6 @@ if [ -n "$UNCLASSIFIED" ]; then
   fi
 fi
 
-[ "$SYNCED" -gt 0 ] || die "нечего публиковать: в профиле нет изменённых скиллов"
 
 # --- линт -------------------------------------------------------------------
 say ""
@@ -161,7 +207,7 @@ fi
 git -C "$REPO_DIR" add -A skills
 if git -C "$REPO_DIR" diff --cached --quiet; then
   git -C "$REPO_DIR" reset -q
-  die "изменений нет: содержимое скиллов в профиле совпадает с репозиторием"
+  die "изменений нет: профиль совпадает с репозиторием либо отстал от него (тогда правки придут через tools/sync.sh)"
 fi
 
 # --- ветка, коммит, CHANGELOG ----------------------------------------------
@@ -301,9 +347,11 @@ else:
 if [ -n "$pr_url" ] && printf '%s' "$pr_url" | grep -q '^https://'; then
   say ""
   say "▪ PR создан: $pr_url"
+  say "PR_URL=$pr_url"
 else
   say ""
   say "⚠ GitHub API ответил: ${pr_url:-нет ответа}"
   say "  Откройте PR вручную: $COMPARE_URL"
+  say "PR_URL="
 fi
 say "  Напоминание: мержит только владелец репозитория (main защищён)."

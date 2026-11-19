@@ -32,6 +32,16 @@ jobs:
       - name: "profile-audit: тесты сканера"
         run: python tools/test_profile_audit.py
 
+      - name: "План публикации: сценарии слияния"
+        run: python tools/test_publish_plan.py
+
+      - name: "Политика PR: версия скилла и журнал"
+        if: github.event_name == 'pull_request'
+        run: |
+          # Изменение файлов скилла без bump версии и без строки в CHANGELOG — не проходит:
+          # именно на этом держится «версии не расходятся с историей».
+          python tools/pr_policy.py --base "${{ github.event.pull_request.base.sha }}" --head HEAD
+
       - name: Секреты в истории git
         run: python tools/skill_lint.py --history
 
