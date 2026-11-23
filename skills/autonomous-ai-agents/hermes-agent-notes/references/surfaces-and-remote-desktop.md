@@ -83,6 +83,84 @@ process on that host — Desktop attaches to it and never starts it.
   remote connection are opened on the gateway host, not the client machine;
   use the file tree rather than "open containing folder".
 
+## 3a. Webapp (browser-hosted Desktop) on the LAN behind a password
+
+`webapp.*` is read by the GATEWAY (`gateway/webapp_listener.py`), from the home that gateway
+serves — not from the profile the command runs in.
+
+- **Write `webapp.*` into the serving home.** A named profile served by the default multiplexer
+  has its own `webapp:` block ignored: `hermes webapp --status` names the config file that counts
+  (usually `~/.hermes/config.yaml`). Set it there: `hermes -p default config set webapp.enabled
+  true` / `webapp.host 0.0.0.0` / `webapp.port 9120`.
+- **The wildcard bind is gated by dashboard sign-in**, so the auth provider must live in the SAME
+  home: `dashboard.basic_auth.{username,password_hash,secret}` in that `config.yaml`, or
+  `HERMES_DASHBOARD_BASIC_AUTH_USERNAME` / `_PASSWORD` in that home's `.env` (`hermes config set
+  HERMES_DASHBOARD_BASIC_AUTH_PASSWORD '…'` routes an UPPER_SNAKE key to `.env`). A hash present in
+  a *profile's* config says nothing about the gate on the port.
+- **Build the shared bundle once per checkout:** `hermes webapp --build-only` →
+  `<install>/apps/desktop/dist-webapp` (45 MB, `index.html` + `hermes-build.json`). Without it the
+  listener reports the Webapp unavailable.
+- **Enabling the Webapp moves the gateway's own listener to `webapp.port`**; a standalone
+  `hermes dashboard` keeps its own port on its own process (both can listen: 9119 and 9120).
+- **Restart is safe from a Desktop chat:** the chat turn runs in the dashboard/agent process, the
+  messaging+webapp listener in `hermes-gateway.service`. `hermes -p default gateway restart`
+  drains and restarts the service (SIGUSR1, `ExecReload` in the unit) without killing the turn.
+  ``hermes gateway restart`` started *in* the gateway process itself is refused (self-kill guard).
+- **Verify the gate, not just the port:** `ss -lntp | grep 9120`; `hermes -p default webapp
+  --status` → `Serving at http://127.0.0.1:9120`; `curl` on the LAN IP → `302 …/login?next=%2F`;
+  `curl -s http://IP:9120/api/status` → `auth_required: true, auth_providers: ["basic"]`; and a
+  wrong password at `POST /auth/password-login` with `{"provider":"basic","username":…,
+  "password":…}` → `401 Invalid credentials` (the body needs `provider`, else 422).
+
+### 3a.1 Plain HTTP from another host: what the browser withholds and why
+
+Not a Hermes limitation — a browser rule (**secure context**). `http://<LAN-IP>:<port>` is not a
+potentially trustworthy origin (`https://`, `http://localhost`, `http://127.0.0.1`, `file://` are),
+so `navigator.*` surfaces are simply absent or hard-denied. Measured on one Webapp origin, same
+page, only the address differing:
+
+| API | `http://<LAN-IP>:9120` | `http://127.0.0.1:9120` |
+|---|---|---|
+| `window.isSecureContext` | `false` | `true` |
+| `navigator.clipboard` / `.read` / `.readText` | `undefined` | `object` / `function` |
+| `navigator.mediaDevices.getUserMedia` | `undefined` | `function` |
+| `Notification.permission` | `"denied"` (ungrantable: `requestPermission()` → `denied`) | `"default"` (grantable) |
+| `crypto.randomUUID`, `navigator.locks` | `undefined` | present |
+
+What that costs, per feature (each is the browser API, not a Hermes bug):
+
+- **Microphone** = `getUserMedia`; the whole `mediaDevices` object is missing, so there is no one to
+  ask for permission. `apps/desktop/src/app/chat/composer/hooks/use-mic-recorder.ts` detects
+  `hostHas('webappCopy') && isSecureContext === false` and shows the "needs HTTPS / tunnel to
+  127.0.0.1" copy instead of "mic unsupported".
+- **System notifications** = Notification API; `lib/browser-notifications.ts` returns `'insecure'`
+  and the tab title flashes instead. Chrome keeps `permission = denied` on such an origin, so the
+  user cannot grant it either.
+- **Clipboard image paste** = async Clipboard API. In the browser the Electron bridge
+  `hermesDesktop.saveClipboardImage` is replaced by `navigator.clipboard.read()`
+  (`lib/browser-clipboard.ts`); with `navigator.clipboard === undefined` it returns `''` and the UI
+  says "no clipboard image". The same file routes *text* copy around the limit
+  (`copyTextThroughSelection` + `execCommand`), images have no fallback. The composer's own
+  focused ⌘V reads the `paste` event's `clipboardData`, which secure context does not gate — so
+  "pasting images does not work" is true for the menu/button and global-hotkey path, not proven
+  for Ctrl+V in the focused composer.
+- **Unaffected:** file upload (`fetch`/FormData), host file tree, Git review, terminal (WebSocket) —
+  ordinary HTTP to the backend, no privileged browser API involved.
+
+**Probe the origin instead of asserting from memory** — one `browser_exec` call answers a whole
+capability question, and the loopback comparison proves the cause is the origin:
+
+```python
+js("(() => ({secure: isSecureContext, clip: typeof navigator.clipboard,
+  mic: typeof (navigator.mediaDevices && navigator.mediaDevices.getUserMedia),
+  perm: Notification.permission}))()")
+```
+
+**Remedies:** SSH tunnel (`ssh -L 9120:127.0.0.1:9120 user@host` → open `http://127.0.0.1:9120`, the
+origin becomes loopback and every API comes back) or a TLS proxy in front of `127.0.0.1:9120` with
+`hermes -p default config set webapp.public_url https://<name>`. A self-signed cert must be trusted
+on the clients, or the origin stays insecure and the limitations stay.
+
 ## 4. Answering capability questions against the installed build
 
 The installed git checkout carries the full, version-matched docs tree:
