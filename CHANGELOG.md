@@ -5,6 +5,8 @@
 
 ## Unreleased
 
+- 2026-11-23 — profile-contribution: у publish.sh нет холостого прогона — --dry-run создаёт ветку и PR (mArTi3-github)
+
 ## 1.30.0 — 2026-11-23
 
 - 2026-11-23 — docx: md_to_docx.py и подводные камни конвертации; dist-fuzz-report-check: verify_deliverables.py и правила сдачи; profile-contribution: фактические гейты публикации; hermes-agent-notes: провайдер, прерванный ход, Webapp на LAN (mArTi3-github)
