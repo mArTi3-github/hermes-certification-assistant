@@ -5,6 +5,8 @@
 
 ## Unreleased
 
+## 1.30.2 — 2026-11-23
+
 - 2026-11-23 — profile-contribution: publish.sh --dry-run показывает план и линт и ничего не публикует (несовместим с --accept); README (mArTi3-github)
 
 ## 1.30.1 — 2026-11-23
