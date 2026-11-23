@@ -5,6 +5,8 @@
 
 ## Unreleased
 
+## 1.30.1 — 2026-11-23
+
 - 2026-11-23 — profile-contribution: у publish.sh нет холостого прогона — --dry-run создаёт ветку и PR (mArTi3-github)
 
 ## 1.30.0 — 2026-11-23
