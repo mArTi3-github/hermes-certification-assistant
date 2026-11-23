@@ -4,10 +4,13 @@
 #   tools/publish.sh -m "dist-tst-report-check: уточнил шаг 0"          # участник: PR и стоп
 #   tools/publish.sh -m "profile-contribution: правило ревью" --accept  # владелец: PR + мерж + релиз
 #   tools/publish.sh -m "..." --accept --bump patch                     # тип релиза
+#   tools/publish.sh -m "..." --dry-run                                 # холостой прогон: план и линт
 #
 # Шаги: contribute.sh (fetch, слияние с main по трём версиям, линт, ветка, PR), затем при
 # --accept — accept.py (зелёный CI, squash-мерж, один релиз, sync, publish_check).
 # Мержа без --accept не бывает: участник останавливается на PR.
+# --dry-run ничего не публикует: fetch, publish_plan.py и skill_lint.py по копии опубликованного
+# набора скиллов профиля — без копирования в клон, коммита, ветки и PR; с --accept несовместим.
 set -euo pipefail
 
 REPO_DIR="${REPO_DIR:-$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)}"
@@ -22,7 +25,7 @@ die() { printf '\n✖ %s\n' "$*" >&2; exit 1; }
 say() { printf '%s\n' "$*"; }
 
 usage() {
-  sed -n '2,12p' "${BASH_SOURCE[0]}" | sed 's/^# \{0,1\}//'
+  sed -n '2,13p' "${BASH_SOURCE[0]}" | sed 's/^# \{0,1\}//'
   exit 0
 }
 
@@ -40,6 +43,63 @@ done
 
 [ -n "$MESSAGE" ] || die "нужно описание изменения: -m \"что и зачем\""
 case "$BUMP" in major|minor|patch) ;; *) die "--bump major|minor|patch, получено: $BUMP" ;; esac
+
+if [ "$DRY_RUN" -eq 1 ] && [ "$ACCEPT" -eq 1 ]; then
+  die "--dry-run несовместим с --accept: холостой прогон ничего не публикует, мержить в нём нечего"
+fi
+
+# Холостой прогон: план публикации и линт. Клон не меняется, на сервере ничего не появляется.
+if [ "$DRY_RUN" -eq 1 ]; then
+  say "=== холостой прогон: план и линт, публикации не будет"
+  say "  изменение: $MESSAGE"
+  say ""
+  say "▪ клон: $(git -C "$REPO_DIR" rev-parse --abbrev-ref HEAD 2>/dev/null) @ $(git -C "$REPO_DIR" rev-parse --short HEAD 2>/dev/null)"
+  git -C "$REPO_DIR" fetch -q origin || say "  ⚠ git fetch не удался — план считается по локальному состоянию клона"
+  if [ -n "$(git -C "$REPO_DIR" status --porcelain 2>/dev/null)" ]; then
+    say "  ⚠ в клоне есть незакоммиченное: настоящий прогон уберёт его в stash"
+  fi
+  say ""
+  say "▪ план публикации (база — метка синхронизации профиля):"
+  PLAN_RC=0
+  python3 "$REPO_DIR/tools/publish_plan.py" --profile "$PROFILE_DIR" --repo "$REPO_DIR" || PLAN_RC=$?
+
+  # Линт идёт по копии опубликованного набора скиллов из профиля: настоящий прогон копирует
+  # ровно это дерево в клон и линтует его, а линт по клону проверил бы апстрим, а не публикацию.
+  LINT_DIR="$(mktemp -d)"
+  trap 'rm -rf "$LINT_DIR"' EXIT
+  cp -a "$REPO_DIR/tools" "$LINT_DIR/tools"
+  for extra in publish.list distribution.yaml config.yaml; do
+    if [ -f "$REPO_DIR/$extra" ]; then
+      cp -a "$REPO_DIR/$extra" "$LINT_DIR/$extra"
+    fi
+  done
+  mkdir -p "$LINT_DIR/skills"
+  COPIED=0
+  while IFS= read -r rel; do
+    [ -n "$rel" ] || continue
+    if [ -d "$PROFILE_DIR/skills/$rel" ]; then
+      mkdir -p "$LINT_DIR/skills/$(dirname "$rel")"
+      cp -a "$PROFILE_DIR/skills/$rel" "$LINT_DIR/skills/$rel"
+      COPIED=$((COPIED + 1))
+    else
+      say "  ⚠ скилла $rel нет в профиле — в линт не попал"
+    fi
+  done < <(python3 "$REPO_DIR/tools/publish_policy.py" --published --profile "$PROFILE_DIR")
+
+  say ""
+  say "▪ линт опубликованного набора из профиля (скиллов $COPIED, копия в $LINT_DIR, клон не тронут):"
+  LINT_RC=0
+  python3 "$LINT_DIR/tools/skill_lint.py" || LINT_RC=$?
+
+  say ""
+  say "дальше в настоящем прогоне: ветка contrib/<автор>/<штамп>-<слаг>, строка в CHANGELOG.md, коммит,"
+  say "push и PR, а с --accept — ожидание CI, squash-мерж, релиз и sync.sh."
+  say "холостой прогон ничего не изменил: скиллы в клон не копировались, ветки и PR нет."
+  if [ "$PLAN_RC" -eq 0 ] && [ "$LINT_RC" -eq 0 ]; then
+    exit 0
+  fi
+  exit 1
+fi
 
 LOG="$(mktemp)"
 trap 'rm -f "$LOG"' EXIT
@@ -71,6 +131,4 @@ fi
 
 say ""
 say "=== приём PR #$PR_NUMBER"
-ARGS=("$PR_NUMBER" --bump "$BUMP")
-[ "$DRY_RUN" -eq 1 ] && ARGS+=(--dry-run)
-python3 "$REPO_DIR/tools/accept.py" "${ARGS[@]}"
+python3 "$REPO_DIR/tools/accept.py" "$PR_NUMBER" --bump "$BUMP"
