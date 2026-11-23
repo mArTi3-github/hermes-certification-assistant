@@ -5,6 +5,8 @@
 
 ## Unreleased
 
+## 1.30.0 — 2026-11-23
+
 - 2026-11-23 — docx: md_to_docx.py и подводные камни конвертации; dist-fuzz-report-check: verify_deliverables.py и правила сдачи; profile-contribution: фактические гейты публикации; hermes-agent-notes: провайдер, прерванный ход, Webapp на LAN (mArTi3-github)
 
 ## 1.29.1 — 2026-11-19
