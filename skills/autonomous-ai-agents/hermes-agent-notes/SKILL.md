@@ -1,6 +1,7 @@
 ---
 name: hermes-agent-notes
 description: "Дополнения к hermes-agent: контекст, доступ, шаринг."
+version: 1.0.0
 metadata:
   hermes:
     tags: [hermes, context, compression, remote-access, profiles, team]
@@ -24,9 +25,11 @@ Hermes перестают приезжать. Всё, чего нет в сто�
 | Тема | Файл |
 |---|---|
 | Когда начинать новую сессию, что переживает компакцию, реальный размер сессии на диске | `references/context-and-compression.md` |
-| Как дотянуться до бэкенда с другой машины, выбор поверхности (CLI, desktop, gateway) | `references/surfaces-and-remote-desktop.md` |
+| Как дотянуться до бэкенда с другой машины, выбор поверхности (CLI, desktop, gateway); Webapp на LAN за паролем, какой home его реально включает, и что именно отбирает plain HTTP (secure context) | `references/surfaces-and-remote-desktop.md` |
 | Раздача Hermes и скиллов коллегам, дистрибутивы профилей, несколько пользователей на одном хосте | `references/team-and-profile-sharing.md` |
 | Долгоживущие скиллы: что куратор видит, защита от архивации отсутствием маркера `created_by` (не пином), где хранить правило, проверка | `references/skill-lifecycle-and-curator.md` + `scripts/verify_skill_pins.py` |
+| Кастомный/корпоративный провайдер: `providers.<id>` против `model.aliases`, ключ в `.env`, где он появляется в настройках клиента, проверка без UI, семантика переключения модели | `references/custom-provider-wiring.md` |
+| Прерванный ход: почему внизу ленты остаётся фраза-намерение, как отличить артефакт вёрстки от реально незавершённой работы | `references/interrupted-turn-display.md` |
 
 ## Правила
 
