@@ -1,7 +1,7 @@
 ---
 name: docx
 description: Create, read, edit, template, and review Word .docx files.
-version: 1.1.0
+version: 1.2.0
 author: Nous Research
 license: MIT
 platforms: [linux, macos, windows]
@@ -90,6 +90,7 @@ python scripts/docx_validate.py out.docx
 | List comments (+anchored text) | `docx_comments.py list f.docx` |
 | Add comment anchored to text | `docx_comments.py add f.docx --target "phrase" --text "note" --author You` |
 | Delete comment by id | `docx_comments.py delete f.docx --id 0` |
+| Markdown report → DOCX | `md_to_docx.py report.md out.docx [--landscape]` |
 | Health-check the package | `docx_validate.py f.docx` (exit 1 on errors) |
 
 ## Procedure
@@ -142,6 +143,29 @@ python scripts/docx_validate.py out.docx
    `--structure`, and run `docx_validate.py` on anything you produced
    via revision/comment surgery.
 
+## Markdown report → DOCX
+
+Long analytical reports are usually written as Markdown first (heading tree,
+GFM tables, `**bold**` / `` `code` `` inline markup, numbered findings) and
+then must be handed over as editable Word. Use the bundled converter instead
+of hand-building the document with python-docx calls:
+
+```bash
+python3 scripts/md_to_docx.py report.md report.docx            # portrait
+python3 scripts/md_to_docx.py report.md report.docx --landscape # 6+ column tables
+```
+
+It maps `#`/`##`/`###` to real Heading styles (navigation pane and TOC field
+work, numbers stay editable text), builds `Table Grid` tables with explicit
+column widths and a repeating header row, numbers `1.` items itself per
+contiguous block, and renders fenced code as monospace blocks. After running
+it, always render and LOOK at the pages (see Converting to PDF) — structural
+correctness and visual correctness fail independently.
+
+Deliver both formats when the document is for review: Markdown/HTML for
+reading and the `.docx` for editing. Keep the source `.md` next to the
+generated `.docx` so a fix can be re-converted instead of edited twice.
+
 ## Converting to PDF
 
 No script needed. When LibreOffice is installed, convert headlessly:
@@ -154,6 +178,21 @@ Check availability first (`command -v soffice || command -v
 libreoffice`). If neither exists, tell the user PDF conversion is
 unavailable in this environment rather than improvising — python-docx
 cannot render PDFs, and layout fidelity requires a real renderer.
+
+Then inspect the render, not only the extracted text. Text extraction cannot
+see a literal `---` line, a list renumbered 16..23, rivers in justified
+paragraphs, or a table whose header vanished after a page break:
+
+```bash
+soffice --headless --convert-to pdf --outdir /tmp/v file.docx
+pdfinfo /tmp/v/file.pdf | grep -i pages
+pdftoppm -r 90 -png -f 1 -l 3 /tmp/v/file.pdf /tmp/v/p   # page range -> PNG
+```
+
+Open the PNGs with the vision tool: page 1 (header block, first table), the
+page holding the widest table, and the page right after the first table break
+(header repeat). One pass over 3-4 pages catches every layout defect listed in
+Pitfalls, while `--text` re-reads clean in all of those cases.
 
 ## Pitfalls
 
@@ -182,9 +221,13 @@ cannot render PDFs, and layout fidelity requires a real renderer.
   document raises `KeyError`. Built-ins like `Heading 1`, `List Bullet`,
   `List Number`, `Table Grid` exist in the default template; custom
   styles must be declared in the create spec first.
-- **Numbered lists restart.** `List Number` relies on Word's default
-  numbering; separate lists in one document may continue numbering
-  instead of restarting. Warn users needing precise multi-list numbering.
+- **Numbered lists do not restart by themselves.** `List Number` keeps a
+  single counter for the whole document: the second list under a new heading
+  continues 16, 17, 18… instead of 1, 2, 3. Never use the style for
+  independent lists — write the number as text (`f"{n}. "` + hanging indent)
+  with a counter you reset on every heading, table and non-list paragraph.
+  `scripts/md_to_docx.py` already does this; hand-rolled loops and
+  `docx_create.py`'s `numbered_list` do not restart per block either.
 - **Cell writes replace formatting.** `set-cell` uses `cell.text = ...`,
   which resets runs in that cell to plain formatting.
 - **Merged cells repeat under iteration.** `row.cells` returns the same
@@ -206,6 +249,25 @@ cannot render PDFs, and layout fidelity requires a real renderer.
   python-docx); raw text substitution in `document.xml` corrupts files
   easily. Use `patch`/`write_file` only for the JSON inputs, never on the
   `.docx` itself.
+- **`doc.add_heading(text)` skips inline conversion.** The heading text is
+  written verbatim, so `**` and backticks from the source land in the
+  finished document. Create the heading empty and add runs:
+  `add_runs(doc.add_heading("", level=2), "## ...".lstrip('# '))`.
+- **Table widths are ignored while autofit is on.** With `table.autofit = True`
+  Word/LibreOffice split the text width evenly, so a 6-column table wraps
+  "NullReferenceException" mid-word while a 2-character column gets the same
+  share. Set `autofit = False` and assign `cell.width` on every row, weighted
+  by content length with a floor around 1.7 cm.
+- **Repeating header rows are not exposed by python-docx.** Append a
+  `w:tblHeader` element to the first row's `trPr`; without it the header stays
+  on page 1 and every continued table page is unlabelled.
+- **Justified text degrades on long tokens.** Paths, URLs and SQL in a justified
+  paragraph stretch inter-word spaces into rivers and can look like a layout
+  bug. Keep `JUSTIFY` for prose, but left-align numbered findings, evidence
+  items and code-heavy paragraphs.
+- **Do not shrink inline code inside headings.** A 9.5 pt monospace run inside
+  a 13 pt bold heading reads as a defect; set only the code font name and let
+  the size inherit from the paragraph style.
 
 ## Verification
 
@@ -220,3 +282,9 @@ cannot render PDFs, and layout fidelity requires a real renderer.
 - For templates run with `--strict`, or check `unfilled_tokens == []`.
 - Structure checks: `--structure` should show the expected heading
   outline and table shapes; `--styles` confirms custom styles applied.
+- After re-converting an edited Markdown source, compare structure numerically:
+  heading and table counts in the DOCX must equal those in the `.md` — a converter
+  that drops a section or merges two tables still renders cleanly and passes text
+  extraction. Then grep every delivered format for the values you just changed:
+  fixing a figure in the `.md` and not re-running the DOCX/HTML conversion leaves
+  the old number in two of three files, and reviewers compare them.
