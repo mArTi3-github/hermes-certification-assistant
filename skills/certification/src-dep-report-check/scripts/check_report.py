@@ -323,12 +323,8 @@ def build(items, meta, journal, html_path: Path, changes=None):
 <p>Уровень опасности и статус вне словаря: такие строки не проходят проверку разметки.</p>
 {table("error", "Недопустимые значения", cols_err, "errs",
        lambda i: i.get("field") in ("уровень", "статус", "структура"))}
-<h2 id="sec-deleted-junk">Удалённые нечитаемые строки</h2>
-<p>Нечитаемые строки удалены целиком, потому что их было больше трёх либо все строки листа нечитаемы.</p>
-{table("error", "Удалённые строки", cols_err, "errs",
-       lambda i: i.get("field") == "удаление")}
-<h2 id="sec-unreadable">Нечитаемые строки, оставленные в отчёте</h2>
-<p>Таких строк немного: они остались в отчёте, но в проверки не идут — нужно исправить или удалить.</p>
+<h2 id="sec-unreadable">Нечитаемые строки</h2>
+<p>Эти строки остаются в отчёте, но в проверки не идут: нужно исправить данные или удалить строку.</p>
 {table("note", "Нечитаемые строки", cols_note, "", lambda i: i.get("field") == "разметка")}
 <h2 id="sec-notes">Прочие замечания к разметке</h2>
 {table("note", "Замечания", cols_note, "", lambda i: i.get("field") != "разметка")}
@@ -585,12 +581,10 @@ def main():
                                             if L.cell(r, idx, f))))
     # полностью пустые строки в диапазоне — тоже не данные: в выгрузках между блоками их сотни
     empty = [n for n, r in rows if n > hnum and not any(str(c or "").strip() for c in r)]
-    # одна-три нечитаемые строки остаются в файле (правит владелец разметки), но в проверки
-    # не идут; больше трёх или все строки нечитаемы — удаляем: отчёт из них не собирается
+    # нечитаемые строки из отчёта не удаляются никогда: это чужая разметка, решение принимает
+    # владелец. В проверках они не участвуют, но в файле остаются и описываются замечаниями
     junk_rows = {x[0] for x in junk}
-    delete_junk = bool(junk) and (len(junk) > 3 or len(junk) == len(data))
-    dropped_junk = junk_rows if delete_junk else set()
-    for n in sorted(set(drop) | set(empty) | dropped_junk, reverse=True):
+    for n in sorted(set(drop) | set(empty), reverse=True):
         ws.delete_rows(n, 1)
     kept = [(n, r) for n, r in data if n not in set(drop) and n not in junk_rows]
     dropped_rows = [{"row": n,
@@ -604,7 +598,7 @@ def main():
     # --- орфография и формат
     changes, typos = [], 0
     det_i = idx.get("detail")
-    removed = set(drop) | set(empty) | dropped_junk
+    removed = set(drop) | set(empty)
     shift = {n: n - sum(1 for d in removed if d < n) for n, _ in kept}
     for n, r in kept:
         if det_i is None:
@@ -674,38 +668,13 @@ def main():
                           "current": cand.get("current", det if cand["field"] == "detail"
                                               else status), **cand})
 
-    if delete_junk:
-        by_reason = {}
-        for n, why, snippet in junk:
-            by_reason.setdefault(why, []).append((n, snippet))
-        for why, rows_ in by_reason.items():
-            items.append({"id": len(items) + 1, "row": f"{len(rows_)} стр.", "container": "—",
-                          "component": "—", "vuln": "—", "kind": "error", "field": "удаление",
-                          "level": "error", "current": "—",
-                          "proposed": "строка удалена из отчёта",
-                          "basis": f"удалены нечитаемые строки ({why}), таких строк {len(junk)} "
-                                   f"из {len(data)}: "
-                                   + "; ".join(f"исходник r{n}: «{sn[:70]}»" for n, sn in rows_[:6])
-                                   + (" …" if len(rows_) > 6 else ""),
-                          "source": "построчная проверка", "strength": "ошибка"})
-    else:
-        # немного нечитаемых строк — не повод их выкидывать: решает владелец разметки
-        for n, why, snippet in junk:
-            items.append({"id": len(items) + 1, "row": n, "container": "—", "component": "—",
-                          "vuln": "—", "kind": "note", "field": "разметка", "level": "info",
-                          "current": snippet or "—",
-                          "proposed": "исправить строку или удалить её из отчёта",
-                          "basis": f"строка не читается ({why}); из отчёта не удалена — "
-                                   f"нечитаемых строк {len(junk)} из {len(data)}",
-                          "source": "построчная проверка", "strength": "замечание"})
-
-    for d in dropped_rows:
-        items.append({"id": len(items) + 1, "row": d["row"], "container": d["container"],
-                      "component": d["component"], "vuln": d["vuln"], "kind": "dropped",
-                      "field": "уровень опасности", "level": "info", "current": d["severity"],
-                      "proposed": "строка удалена из отчёта",
-                      "basis": f"уровень «{d['severity']}» вне high/critical",
-                      "source": "фильтр по уровню опасности", "strength": "выполнено"})
+    for n, why, snippet in junk:
+        items.append({"id": len(items) + 1, "row": n, "container": "—", "component": "—",
+                      "vuln": "—", "kind": "note", "field": "разметка", "level": "info",
+                      "current": snippet or "—",
+                      "proposed": "исправить строку или удалить её из отчёта",
+                      "basis": f"строка не читается ({why}); из отчёта не удалена",
+                      "source": "построчная проверка", "strength": "замечание"})
 
     for what, desc in audit:
         items.append({"id": len(items) + 1, "row": "—", "container": "—", "component": "—",
@@ -746,9 +715,7 @@ def main():
                  L.cell(r, idx, "severity").lower() for _, r in kept).items()))),
         f"проверяю орфографию — правлено ячеек: {typos} (опечатки и формат)",
         f"статусы, id и purl не изменялись: предложения вынесены в {html_out.name}",
-        (f"удалено нечитаемых строк: {len(junk)} (больше трёх или все строки нечитаемы)"
-         if delete_junk else
-         f"нечитаемых строк: {len(junk)} — оставлены в отчёте, вынесены в замечания"),
+        f"нечитаемых строк: {len(junk)} — оставлены в отчёте, вынесены в замечания",
         f"рекомендаций: статус {sum(1 for i in items if i['kind'] == 'status')}, "
         f"обоснование {sum(1 for i in items if i['kind'] == 'detail')}, "
         f"замечания {sum(1 for i in items if i['kind'] == 'note')}, "
