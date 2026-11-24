@@ -5,6 +5,10 @@
 
 ## Unreleased
 
+- 2026-11-24 — новый скилл certification/src-dep-analysis: проверка отчётов по уязвимостям заимствованных компонентов (SBOM/VEX) — двухэтапный процесс, фильтр severity, HTML-рекомендации (kristiandemole-spec)
+- 2026-11-24 — hermes-agent-notes: раздел о файлах хоста и общих папках VMware, строка в таблице (kristiandemole-spec)
+- 2026-11-24 — profile-contribution: строка о сироте после sync.sh --force (kristiandemole-spec)
+
 ## 1.30.2 — 2026-11-23
 
 - 2026-11-23 — profile-contribution: publish.sh --dry-run показывает план и линт и ничего не публикует (несовместим с --accept); README (mArTi3-github)
