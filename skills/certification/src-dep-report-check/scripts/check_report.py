@@ -2,8 +2,8 @@
 """Этап 1 — правка отчёта: промежуточный `_filtered.xlsx` + HTML-отчёт с рекомендациями.
 
 Что делает:
-  1) по флагу --only-high-critical удаляет строки с severity вне high/critical
-       (по умолчанию строки сохраняются), задаёт оформление листа из csv;
+  1) удаляет строки с severity вне high/critical (флаг --keep-all-levels сохраняет их),
+       задаёт оформление листа из csv;
   2) правит орфографию и формат в `detail` (без согласования, с записью в «Изменения»);
   3) собирает рекомендации — смена статуса, правка обоснований, замечания к разметке —
      и складывает их в отдельный HTML-отчёт `recommendations.html`. Машиночитаемая копия
@@ -448,8 +448,8 @@ def main():
     ap.add_argument("--no-nvd", action="store_true", help="не ходить в NVD за диапазонами версий")
     ap.add_argument("--template", default=None,
                     help="образец оформления (xlsx); по умолчанию ищется в каталоге «пример» рядом с отчётом")
-    ap.add_argument("--only-high-critical", action="store_true",
-                    help="удалить строки с уровнем вне high/critical (по умолчанию строки сохраняются)")
+    ap.add_argument("--keep-all-levels", action="store_true",
+                    help="не удалять строки с уровнем вне high/critical (по умолчанию удаляются)")
     ap.add_argument("--cache-dir", default=str(Path.home() / ".cache" / "src-dep-report-check"))
     ap.add_argument("--workdir", default=None,
                     help="где держать машиночитаемую спецификацию (по умолчанию ~/.cache/src-dep-report-check/work)")
@@ -495,7 +495,7 @@ def main():
         audit.append(("данные взяты из выгрузки CSV в одной колонке",
                       f"лист «{src_ws.title}» шириной {src_ws.max_column} колонка; текст в cp1251-мojibake "
                       f"восстановлен, перенесён в чистый лист «Отчёт», исходный лист в результат не входит"))
-    # --- удаление строк вне high/critical (только с --only-high-critical)
+    # --- удаление строк вне high/critical (сохранить их можно флагом --keep-all-levels)
     ws = wb[sheet]
     # служебная строка выгрузки `Column1 … Column8` над шапкой: в отчёте ей делать нечего
     import re as _re
@@ -530,9 +530,9 @@ def main():
         if not name and not comp:
             return "нет названия продукта"
         return ""
-    # фильтр по уровню опасности — только по прямому указанию: по умолчанию в отчёте
-    # остаются все валидные строки, иначе из размеченного отчёта пропадают находки
-    drop = [] if not getattr(a, "only_high_critical", False) else [n for n, r in data
+    # по умолчанию из отчёта уходят все валидные строки вне high/critical: отчёт
+    # собирается только по high и critical, сохранение остальных — отдельный флаг
+    drop = [] if getattr(a, "keep_all_levels", False) else [n for n, r in data
             if L.cell(r, idx, "severity").lower() in VALID_SEVERITY
             and L.cell(r, idx, "severity").lower() not in L.ALLOWED_SEVERITY]
     # «просто набор букв»: одна-три такие строки остаются в отчёте и уходят замечанием,
