@@ -71,7 +71,7 @@ python3 -c "import json;print(sorted({v['id'] for v in json.load(open('/tmp/osv-
 NVD без ключа пускает **5 запросов за 30 секунд**: без пауз часть запросов получает отказ, и тогда
 часть строк молча остаётся без диапазона — предложения по статусу просто не появляются
 (20 CVE = 6 предложений вместо 32). Поэтому запросы идут по одному с паузой ~6,5 с и явным
-`User-Agent`, ответ каждого CVE кэшируется в `~/.cache/src-dep-analysis/<CVE>.json`.
+`User-Agent`, ответ каждого CVE кэшируется в `~/.cache/src-dep-report-check/<CVE>.json`.
 На отчёт с 70+ CVE — несколько минут: запускать в фоне с уведомлением, а не в foreground.
 
 Офлайн-страховка — `references/version-ranges.json`, который заполняет `scripts/refresh_ranges.py <отчёт>`

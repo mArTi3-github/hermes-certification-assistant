@@ -6,12 +6,12 @@
   2) правит орфографию и формат в `detail` (без согласования, с записью в «Изменения»);
   3) собирает рекомендации — смена статуса, правка обоснований, замечания к разметке —
      и складывает их в отдельный HTML-отчёт `recommendations.html`. Машиночитаемая копия
-     пунктов живёт вне сдачи (`~/.cache/src-dep-analysis/work/<имя>.json`) — её читает этап 2.
+     пунктов живёт вне сдачи (`~/.cache/src-dep-report-check/work/<имя>.json`) — её читает этап 2.
 
 Ничего, кроме орфографии и удаления строк, в отчёте не меняется: статусы, `id` и purl
 остаются авторскими до согласования.
 
-    python3 check_report.py <отчёт.xlsx|.csv> [--outdir <шара>/SRC_DEP_analys] [--no-nvd]
+    python3 check_report.py <отчёт.xlsx|.csv> [--outdir <шара>/src-dep-report-check] [--no-nvd]
 """
 from __future__ import annotations
 
@@ -379,17 +379,17 @@ def audit_book(wb, idx):
 def main():
     ap = argparse.ArgumentParser()
     ap.add_argument("source", nargs="?")
-    ap.add_argument("--outdir", default=None, help="каталог результата (по умолчанию SRC_DEP_analys)")
+    ap.add_argument("--outdir", default=None, help="каталог результата (по умолчанию src-dep-report-check)")
     ap.add_argument("--no-nvd", action="store_true", help="не ходить в NVD за диапазонами версий")
-    ap.add_argument("--cache-dir", default=str(Path.home() / ".cache" / "src-dep-analysis"))
+    ap.add_argument("--cache-dir", default=str(Path.home() / ".cache" / "src-dep-report-check"))
     ap.add_argument("--workdir", default=None,
-                    help="где держать машиночитаемую спецификацию (по умолчанию ~/.cache/src-dep-analysis/work)")
+                    help="где держать машиночитаемую спецификацию (по умолчанию ~/.cache/src-dep-report-check/work)")
     a = ap.parse_args()
     if not a.source:
         sys.exit("укажите отчёт: check_report.py <файл.xlsx|.csv>")
 
     src = Path(a.source).expanduser().resolve()
-    outdir = Path(a.outdir).expanduser() if a.outdir else src.parent / "SRC_DEP_analys"
+    outdir = Path(a.outdir).expanduser() if a.outdir else src.parent / "src-dep-report-check"
     outdir.mkdir(parents=True, exist_ok=True)
     filtered = outdir / f"{src.stem}_filtered.xlsx"
     html_out = outdir / f"{src.stem}_recommendations.html"

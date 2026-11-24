@@ -5,8 +5,8 @@
 
 ## Unreleased
 
-- 2026-11-24 — certification/src-dep-analysis: 2.1.0 → 2.2.0 — нечитаемые строки до трёх остаются в отчёте и уходят замечанием, больше трёх (или все) удаляются с пунктом в рекомендациях (kristiandemole-spec)
-- 2026-11-24 — новый скилл certification/src-dep-analysis: проверка отчётов по уязвимостям заимствованных компонентов (SBOM/VEX) — двухэтапный процесс, фильтр severity, HTML-рекомендации (kristiandemole-spec)
+- 2026-11-24 — certification/src-dep-report-check (бывш. src-dep-analysis) 2.2.0 → 2.3.0: переименованы скилл и папка результатов (SRC_DEP_analys → src-dep-report-check); нечитаемые строки до трёх остаются в отчёте и уходят замечанием, больше трёх (или все) удаляются с пунктом в рекомендациях (kristiandemole-spec)
+- 2026-11-24 — новый скилл certification/src-dep-report-check: проверка отчётов по уязвимостям заимствованных компонентов (SBOM/VEX) — двухэтапный процесс, фильтр severity, HTML-рекомендации (kristiandemole-spec)
 - 2026-11-24 — hermes-agent-notes: раздел о файлах хоста и общих папках VMware, строка в таблице (kristiandemole-spec)
 - 2026-11-24 — profile-contribution: строка о сироте после sync.sh --force (kristiandemole-spec)
 

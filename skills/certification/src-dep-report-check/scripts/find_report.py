@@ -32,7 +32,7 @@ STRONG = {"component", "component_purl", "ancestor_component_purl", "severity", 
 NAME_HINTS = ("sbom", "vex", "src.dep", "src-dep", "src_dep", "уязвим", "заимствован",
               "package", "components", "otchet", "отчёт", "report")
 SKIP_DIRS = {".git", "node_modules", "__pycache__", ".Trash", "$RECYCLE.BIN",
-             "SRC_DEP_analys"}
+             "src-dep-report-check"}
 MAX_DEPTH = 4
 SIZE_MIN = 256
 SIZE_MAX = 200 * 1024 * 1024
