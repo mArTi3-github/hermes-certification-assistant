@@ -195,19 +195,25 @@ def build(items, meta, journal, html_path: Path, changes=None):
     nts = rows("note")
     errs = rows("error")
     stat = Counter(i["proposed"] for i in st)
+    # каждое число статистики ведёт в свой раздел: цифра без списка строк не проверяется
     cards = [
-        ("строк в отчёте", meta["rows_in"]),
-        ("удалено (severity вне high/critical)", meta["rows_dropped"]),
-        ("исправлено опечаток и формата", meta["typos"]),
-        ("рекомендаций по статусу", len(st)),
-        ("рекомендаций по обоснованию", len(det)),
-        ("пустых полей", sum(1 for i in items if i["kind"] == "fill")),
-        ("ошибок разметки (красным)", len(errs)),
-        ("дефектов файла", sum(1 for i in items if i["kind"] == "defect")),
-        ("замечаний к разметке", len(nts)),
+        ("sec-composition", "строк в отчёте", meta["rows_in"]),
+        ("sec-deleted-severity", "удалено (severity вне high/critical)", meta["rows_dropped"]),
+        ("sec-changes", "исправлено опечаток и формата", meta["typos"]),
+        ("sec-status", "рекомендаций по статусу", len(st)),
+        ("sec-detail", "рекомендаций по обоснованию", len(det)),
+        ("sec-empty", "пустых полей", sum(1 for i in items if i["kind"] == "fill")),
+        ("sec-badfields", "ошибок разметки (красным)", len(errs)),
+        ("sec-defects", "дефектов файла", sum(1 for i in items if i["kind"] == "defect")),
+        ("sec-notes", "замечаний к разметке", len(nts)),
     ]
-    cards_html = "".join(f"<div class='card'><div class='n'>{v}</div>"
-                         f"<div class='l'>{html.escape(k)}</div></div>" for k, v in cards)
+    cards_html = "".join(f"<a class='card' href='#{a}'><div class='n'>{v}</div>"
+                         f"<div class='l'>{html.escape(k)}</div></a>" for a, k, v in cards)
+    containers = meta.get("containers") or {}
+    comp_body = "".join(f"<tr><td>{html.escape(str(k))}</td><td class='num'>{v}</td></tr>"
+                        for k, v in sorted(containers.items(), key=lambda x: (-x[1], str(x[0]))))
+    composition_html = ("<div class='tablewrap'><table><thead><tr><th>контейнер</th><th>строк</th>"
+                        f"</tr></thead><tbody>{comp_body}</tbody></table></div>")
     stat_html = "".join(f"<li><code>{html.escape(k)}</code> — {v}</li>" for k, v in stat.most_common())
     journal_html = "".join(f"<li>{html.escape(j)}</li>" for j in journal)
     cols = ["№", "строка", "контейнер", "компонент", "CVE", "сейчас", "предлагаю", "основание",
@@ -216,6 +222,7 @@ def build(items, meta, journal, html_path: Path, changes=None):
     cols_defect = ["№", "что найдено", "подробности"]
     cols_fill = ["№", "строка", "контейнер", "компонент", "CVE", "пусто", "что сделать"]
     cols_note = ["№", "строка", "контейнер", "компонент", "CVE", "предлагаю", "основание"]
+    cols_dropped = ["№", "строка", "контейнер", "компонент", "CVE", "сейчас", "предлагаю", "основание"]
     changes = changes or []
     if changes:
         body = "".join("<tr>" + "".join(f"<td>{html.escape(str(v))}</td>" for v in row) + "</tr>"
@@ -242,6 +249,9 @@ def build(items, meta, journal, html_path: Path, changes=None):
  .card {{ flex:1 1 170px; background:#fff; border:1px solid var(--line); border-radius:10px; padding:14px 16px; }}
  .card .n {{ font-size:24px; font-weight:700; }}
  .card .l {{ color:var(--muted); font-size:12.5px; margin-top:2px; }}
+ a.card {{ text-decoration:none; color:inherit; display:block; }}
+ a.card:hover {{ border-color:var(--accent); box-shadow:0 0 0 2px #dbe7f6; }}
+ h2 {{ scroll-margin-top:12px; }}
  .tablewrap {{ overflow-x:auto; border:1px solid var(--line); border-radius:10px; background:#fff; }}
  table {{ width:100%; min-width:1080px; border-collapse:collapse; font-size:12.8px; }}
  th, td {{ border-bottom:1px solid var(--line); border-right:1px solid var(--line); padding:7px 9px;
@@ -273,40 +283,46 @@ def build(items, meta, journal, html_path: Path, changes=None):
  <code>{html.escape(meta['filtered'])}</code> · сформировано {meta['ts']}<br>
  Статусы, идентификаторы и purl в отчёте не изменялись: всё перечисленное — предложения.</div>
 <div class="cards">{cards_html}</div>
-<h2>Смена статуса</h2>
+<h2 id="sec-composition">Состав отчёта</h2>
+<p>Строки, оставшиеся в отчёте после фильтра, по контейнерам продукта.</p>
+{composition_html}
+<h2 id="sec-deleted-severity">Удалённые строки: уровень опасности</h2>
+<p>Все строки с уровнем вне high/critical, удалённые из отчёта, с номерами в исходнике.</p>
+{table("dropped", "Удалённые строки", cols_dropped)}
+<h2 id="sec-status">Смена статуса</h2>
 <p>Предлагаемые статусы:</p><ul>{stat_html or '<li>нет</li>'}</ul>
 {table("status", "Статусы к утверждению", cols)}
-<h2>Правка обоснований</h2>
+<h2 id="sec-detail">Правка обоснований</h2>
 {table("detail", "Обоснования к уточнению", cols_err)}
-<h2>Пустые поля</h2>
+<h2 id="sec-empty">Пустые поля</h2>
 <p>Поля, пустые в исходном отчёте: без них статус разметки не подтверждён. Строка перечислена
 здесь один раз — отдельного пункта по обоснованию для неё нет.</p>
 {table("fill", "Пустые поля", cols_fill)}
-<h2>Неиспользуемость в обосновании</h2>
+<h2 id="sec-nonuse">Неиспользуемость в обосновании</h2>
 <p>Тезис о том, что компонент не применяется или код недостижим, проверяемым основанием не является.</p>
 {table("error", "Обоснование через неиспользуемость", cols_err, "errs",
        lambda i: i.get("field") == "detail")}
-<h2>Недопустимые значения полей</h2>
+<h2 id="sec-badfields">Недопустимые значения полей</h2>
 <p>Уровень опасности и статус вне словаря: такие строки не проходят проверку разметки.</p>
 {table("error", "Недопустимые значения", cols_err, "errs",
        lambda i: i.get("field") in ("уровень", "статус", "структура"))}
-<h2>Строки, удалённые из отчёта</h2>
+<h2 id="sec-deleted-junk">Удалённые нечитаемые строки</h2>
 <p>Нечитаемые строки удалены целиком, потому что их было больше трёх либо все строки листа нечитаемы.</p>
 {table("error", "Удалённые строки", cols_err, "errs",
        lambda i: i.get("field") == "удаление")}
-<h2>Нечитаемые строки, оставленные в отчёте</h2>
+<h2 id="sec-unreadable">Нечитаемые строки, оставленные в отчёте</h2>
 <p>Таких строк немного: они остались в отчёте, но в проверки не идут — нужно исправить или удалить.</p>
 {table("note", "Нечитаемые строки", cols_note, "", lambda i: i.get("field") == "разметка")}
-<h2>Прочие замечания к разметке</h2>
+<h2 id="sec-notes">Прочие замечания к разметке</h2>
 {table("note", "Замечания", cols_note, "", lambda i: i.get("field") != "разметка")}
-<h2>Дефекты файла</h2>
+<h2 id="sec-defects">Дефекты файла</h2>
 <p>Это не ошибки разметки: особенности выгрузки — служебные строки, одноколоночный CSV, кодировка.</p>
 {table("defect", "Дефекты исходного файла", cols_defect)}
-<h2>Внесённые правки</h2>
+<h2 id="sec-changes">Внесённые правки</h2>
 <p>Правки орфографии и формата в самом отчёте. Отдельного листа в документе нет: всё, что
 изменено, перечислено здесь.</p>
 {changes_html}
-<h2>Журнал этапа</h2>
+<h2 id="sec-journal">Журнал этапа</h2>
 <div class="note"><ul class="journal">{journal_html}</ul></div>
 </main></body></html>"""
     html_path.write_text(doc, encoding="utf-8")
@@ -413,6 +429,12 @@ def apply_template(ws, ncols, nrows, tpl: Path):
 
     twb = load_workbook(tpl)
     tws = twb[twb.sheetnames[0]]
+    # цвет стиля таблицы берётся из темы книги: без темы образца Medium7 даёт оранжевый
+    # (в теме по умолчанию openpyxl accent6 = F79646) вместо зелёного 70AD47 из образца
+    try:
+        ws.parent.loaded_theme = twb.loaded_theme
+    except Exception:
+        pass
     for i in range(1, ncols + 1):
         dim = tws.column_dimensions.get(get_column_letter(i))
         if dim is not None and dim.width:
@@ -554,6 +576,13 @@ def main():
     for n in sorted(set(drop) | set(empty) | dropped_junk, reverse=True):
         ws.delete_rows(n, 1)
     kept = [(n, r) for n, r in data if n not in set(drop) and n not in junk_rows]
+    dropped_rows = [{"row": n,
+                     "container": L.cell(r, idx, "product_name") or L.cell(r, idx, "product_purl") or "—",
+                     "component": L.cell(r, idx, "component") or "—",
+                     "vuln": L.cell(r, idx, "vuln_id") or "—",
+                     "severity": L.cell(r, idx, "severity") or "—"} for n, r in data if n in set(drop)]
+    by_container = __import__("collections").Counter(
+        (L.cell(r, idx, "product_name") or L.cell(r, idx, "product_purl") or "—") for _, r in kept)
 
     # --- орфография и формат
     changes, typos = [], 0
@@ -652,6 +681,14 @@ def main():
                                    f"нечитаемых строк {len(junk)} из {len(data)}",
                           "source": "построчная проверка", "strength": "замечание"})
 
+    for d in dropped_rows:
+        items.append({"id": len(items) + 1, "row": d["row"], "container": d["container"],
+                      "component": d["component"], "vuln": d["vuln"], "kind": "dropped",
+                      "field": "уровень опасности", "level": "info", "current": d["severity"],
+                      "proposed": "строка удалена из отчёта",
+                      "basis": f"уровень «{d['severity']}» вне high/critical",
+                      "source": "фильтр по уровню опасности", "strength": "выполнено"})
+
     for what, desc in audit:
         items.append({"id": len(items) + 1, "row": "—", "container": "—", "component": "—",
                       "vuln": "—", "kind": "defect", "field": "источник", "level": "info",
@@ -720,7 +757,8 @@ def main():
 
     wb.save(filtered)
 
-    meta = {"source": str(src), "source_name": src.name, "filtered": str(filtered),
+    meta = {"containers": dict(by_container), "dropped": dropped_rows,
+            "source": str(src), "source_name": src.name, "filtered": str(filtered),
             "rows_in": len(data), "rows_dropped": len(drop), "typos": typos,
             "ts": datetime.now().strftime("%d.%m.%Y %H:%M")}
     workdir = Path(a.workdir).expanduser() if a.workdir else Path(a.cache_dir) / "work"
