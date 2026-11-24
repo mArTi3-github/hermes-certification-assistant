@@ -81,10 +81,9 @@ def propose_detail(comp, ver, vid, det):
     """
     name = comp.split("/")[-1].split("@")[0] if comp else "компонента"
     if not det:
-        return {"kind": "detail", "field": "detail",
-                "proposed": f"Уязвимость заявлена для {name}, поставленного в составе продукта; "
-                            f"необходимо заполнить обоснование.",
-                "basis": "поле пустое", "source": "правило 3", "strength": "необходимо утвердить"}
+        # пустое поле — не «обоснование к уточнению»: строка попадает в раздел «Пустые поля»,
+        # второго пункта по той же строке не создаётся
+        return None
     if vid in COMPLETIONS and (L.is_broken(det) or L.WRONG_PRODUCT.match(det)):
         return {"kind": "detail", "field": "detail", "proposed": COMPLETIONS[vid],
                 "basis": "формулировка оборвана или называет чужой продукт",
@@ -157,11 +156,11 @@ def check_version_text(comp, ver, vid, det):
 
 
 def build(items, meta, journal, html_path: Path, changes=None):
-    def rows(kind):
-        return [i for i in items if i["kind"] == kind]
+    def rows(kind, pred=None):
+        return [i for i in items if i["kind"] == kind and (pred is None or pred(i))]
 
-    def table(kind, head, cols, cls=""):
-        data = rows(kind)
+    def table(kind, head, cols, cls="", pred=None):
+        data = rows(kind, pred)
         if kind == "defect":
             if not data:
                 return "<p class='empty'>Дефектов не найдено.</p>"
@@ -202,7 +201,7 @@ def build(items, meta, journal, html_path: Path, changes=None):
         ("исправлено опечаток и формата", meta["typos"]),
         ("рекомендаций по статусу", len(st)),
         ("рекомендаций по обоснованию", len(det)),
-        ("необходимо заполнить", sum(1 for i in items if i["kind"] == "fill")),
+        ("пустых полей", sum(1 for i in items if i["kind"] == "fill")),
         ("ошибок разметки (красным)", len(errs)),
         ("дефектов файла", sum(1 for i in items if i["kind"] == "defect")),
         ("замечаний к разметке", len(nts)),
@@ -216,6 +215,7 @@ def build(items, meta, journal, html_path: Path, changes=None):
     cols_err = ["№", "строка", "контейнер", "компонент", "CVE", "сейчас", "предлагаю", "основание"]
     cols_defect = ["№", "что найдено", "подробности"]
     cols_fill = ["№", "строка", "контейнер", "компонент", "CVE", "пусто", "что сделать"]
+    cols_note = ["№", "строка", "контейнер", "компонент", "CVE", "предлагаю", "основание"]
     changes = changes or []
     if changes:
         body = "".join("<tr>" + "".join(f"<td>{html.escape(str(v))}</td>" for v in row) + "</tr>"
@@ -277,21 +277,31 @@ def build(items, meta, journal, html_path: Path, changes=None):
 <p>Предлагаемые статусы:</p><ul>{stat_html or '<li>нет</li>'}</ul>
 {table("status", "Статусы к утверждению", cols)}
 <h2>Правка обоснований</h2>
-{table("detail", "Обоснования к уточнению",
-       ["№", "строка", "контейнер", "компонент", "CVE", "сейчас", "предлагаю", "основание"])}
-<h2>Необходимо заполнить</h2>
-<p>Поля, пустые в исходном отчёте: без них статус разметки не подтверждён.</p>
-{table("fill", "Незаполненные поля", cols_fill)}
-<h2>Ошибки разметки</h2>
-<p>Красным выделены строки с ошибками человека: обоснование через неиспользуемость, недопустимые
-значения полей, нечитаемые строки, удалённые из отчёта.</p>
-{table("error", "Строки с ошибками разметки", cols_err, "errs")}
+{table("detail", "Обоснования к уточнению", cols_err)}
+<h2>Пустые поля</h2>
+<p>Поля, пустые в исходном отчёте: без них статус разметки не подтверждён. Строка перечислена
+здесь один раз — отдельного пункта по обоснованию для неё нет.</p>
+{table("fill", "Пустые поля", cols_fill)}
+<h2>Неиспользуемость в обосновании</h2>
+<p>Тезис о том, что компонент не применяется или код недостижим, проверяемым основанием не является.</p>
+{table("error", "Обоснование через неиспользуемость", cols_err, "errs",
+       lambda i: i.get("field") == "detail")}
+<h2>Недопустимые значения полей</h2>
+<p>Уровень опасности и статус вне словаря: такие строки не проходят проверку разметки.</p>
+{table("error", "Недопустимые значения", cols_err, "errs",
+       lambda i: i.get("field") in ("уровень", "статус", "структура"))}
+<h2>Строки, удалённые из отчёта</h2>
+<p>Нечитаемые строки удалены целиком, потому что их было больше трёх либо все строки листа нечитаемы.</p>
+{table("error", "Удалённые строки", cols_err, "errs",
+       lambda i: i.get("field") == "удаление")}
+<h2>Нечитаемые строки, оставленные в отчёте</h2>
+<p>Таких строк немного: они остались в отчёте, но в проверки не идут — нужно исправить или удалить.</p>
+{table("note", "Нечитаемые строки", cols_note, "", lambda i: i.get("field") == "разметка")}
+<h2>Прочие замечания к разметке</h2>
+{table("note", "Замечания", cols_note, "", lambda i: i.get("field") != "разметка")}
 <h2>Дефекты файла</h2>
 <p>Это не ошибки разметки: особенности выгрузки — служебные строки, одноколоночный CSV, кодировка.</p>
 {table("defect", "Дефекты исходного файла", cols_defect)}
-<h2>Замечания к разметке</h2>
-{table("note", "Замечания",
-       ["№", "строка", "контейнер", "компонент", "CVE", "предлагаю", "основание"])}
 <h2>Внесённые правки</h2>
 <p>Правки орфографии и формата в самом отчёте. Отдельного листа в документе нет: всё, что
 изменено, перечислено здесь.</p>
@@ -377,41 +387,58 @@ def audit_book(wb, idx):
     return out
 
 
-def style_csv_sheet(ws, hnum, rng, idx):
-    """Оформление листа, собранного из csv: у csv оформления нет, его надо задать.
+def find_template(src: Path, explicit=None):
+    """Образец оформления: явный путь, затем каталог «пример» рядом с отчётом, затем встроенный."""
+    if explicit:
+        p = Path(explicit).expanduser()
+        return p if p.exists() else None
+    ex = src.parent / "пример"
+    if ex.is_dir():
+        for f in sorted(ex.glob("*.xlsx")):
+            if not f.name.startswith("~$"):
+                return f
+    builtin = Path(__file__).resolve().parent.parent / "assets" / "report-template.xlsx"
+    return builtin if builtin.exists() else None
 
-    Шапка — заливка, жирный белый шрифт, рамки и перенос; тело — рамки, выравнивание
-    по верху, перенос длинного обоснования; автофильтр по шапке, закрепление шапки,
-    ширины по смыслу колонок. Строки не подсвечиваются: цвет в отчёте только у шапки.
+
+def apply_template(ws, ncols, nrows, tpl: Path):
+    """Наложить оформление образца на лист, собранный из csv.
+
+    csv не несёт ни ширин, ни шрифтов, ни фильтров, поэтому вид берётся с образца: ширины колонок,
+    таблица со стилем (полосы и кнопки фильтра), закрепление шапки, её высота. Строки данных
+    отдельно не красятся — цвет даёт стиль таблицы, как в образце.
     """
-    from openpyxl.styles import Alignment, Border, Font, PatternFill, Side
     from openpyxl.utils import get_column_letter
+    from openpyxl.worksheet.table import Table, TableStyleInfo
 
-    head_fill = PatternFill("solid", fgColor="1F3864")
-    thin = Side(style="thin", color="BFBFBF")
-    border = Border(left=thin, right=thin, top=thin, bottom=thin)
-    widths = {"product_name": 22, "product_version": 17, "product_purl": 46,
-              "component": 40, "vuln_id": 17, "severity": 11, "status": 15, "detail": 70}
-    last_row, last_col = ws.max_row, ws.max_column
-    for c in range(1, last_col + 1):
-        cell = ws.cell(row=hnum, column=c)
-        cell.font = Font(bold=True, color="FFFFFF")
-        cell.fill = head_fill
-        cell.alignment = Alignment(horizontal="center", vertical="center", wrap_text=True)
-        cell.border = border
-        name = str(cell.value or "").strip()
-        field = next((f for f, i in idx.items() if i == c - 1), "")
-        letter = get_column_letter(c)
-        ws.column_dimensions[letter].width = widths.get(
-            name, widths.get(field, 20))
-    for r in range(hnum + 1, last_row + 1):
-        for c in range(1, last_col + 1):
-            cell = ws.cell(row=r, column=c)
-            cell.border = border
-            cell.alignment = Alignment(vertical="top", wrap_text=True)
-    ws.row_dimensions[hnum].height = 30
-    ws.auto_filter.ref = rng
-    ws.freeze_panes = ws.cell(row=hnum + 1, column=1).coordinate
+    twb = load_workbook(tpl)
+    tws = twb[twb.sheetnames[0]]
+    for i in range(1, ncols + 1):
+        dim = tws.column_dimensions.get(get_column_letter(i))
+        if dim is not None and dim.width:
+            ws.column_dimensions[get_column_letter(i)].width = dim.width
+    style = ("TableStyleMedium7", True, False, False, False)
+    for t in tws.tables.values():
+        ti = getattr(t, "tableStyleInfo", None)
+        if ti is not None:
+            style = (ti.name or "TableStyleMedium7", bool(ti.showRowStripes),
+                     bool(ti.showFirstColumn), bool(ti.showLastColumn),
+                     bool(ti.showColumnStripes))
+        break
+    # имя таблицы — только латиница, цифры и подчёркивания: кириллицу Excel принимает не везде
+    base = re.sub(r"[^A-Za-z0-9]+", "_", ws.title).strip("_")[:24]
+    name = ("report_" + base) if base else "report_data"
+    table = Table(displayName=name or "report_table",
+                  ref=f"A1:{get_column_letter(ncols)}{nrows}")
+    table.tableStyleInfo = TableStyleInfo(name=style[0], showFirstColumn=style[2],
+                                          showLastColumn=style[3], showRowStripes=style[1],
+                                          showColumnStripes=style[4])
+    ws.add_table(table)
+    if tws.freeze_panes:
+        ws.freeze_panes = tws.freeze_panes
+    if tws.row_dimensions[1].height:
+        ws.row_dimensions[1].height = tws.row_dimensions[1].height
+    return style[0]
 
 
 def main():
@@ -419,6 +446,8 @@ def main():
     ap.add_argument("source", nargs="?")
     ap.add_argument("--outdir", default=None, help="каталог результата (по умолчанию src-dep-report-check)")
     ap.add_argument("--no-nvd", action="store_true", help="не ходить в NVD за диапазонами версий")
+    ap.add_argument("--template", default=None,
+                    help="образец оформления (xlsx); по умолчанию ищется в каталоге «пример» рядом с отчётом")
     ap.add_argument("--only-high-critical", action="store_true",
                     help="удалить строки с уровнем вне high/critical (по умолчанию строки сохраняются)")
     ap.add_argument("--cache-dir", default=str(Path.home() / ".cache" / "src-dep-report-check"))
@@ -436,6 +465,7 @@ def main():
 
     wb, sheet, hnum, idx, rows = L.read_table(src)
     from_csv = wb is None
+    tpl, tpl_style = None, ""      # образец оформления нужен только для csv
     if wb is None:  # csv: собираем книгу в памяти, чтобы правки шли тем же путём
         from openpyxl import Workbook
         wb = Workbook()
@@ -445,6 +475,9 @@ def main():
         for _, r in rows:
             ws.append(["" if c is None else c for c in r])
         rows = [(i, [c.value for c in row]) for i, row in enumerate(ws.iter_rows(), 1)]
+        # оформление — до анализа: правки и удаления идут уже по оформленному листу
+        tpl = find_template(src, a.template)
+        tpl_style = apply_template(ws, ws.max_column, ws.max_row, tpl) if tpl else ""
     audit = audit_book(wb, idx)
     external = neutralise_query_tables(wb)
     src_ws = wb[sheet]
@@ -646,6 +679,8 @@ def main():
         f"удалены служебные строки Column над шапкой: {len(service)}",
         f"удалено пустых строк в диапазоне: {len(empty)} (в рекомендации не описываются)",
         f"сняты внешние данные и служебные структуры: {external}",
+        (f"оформление по образцу {tpl.name}: таблица со стилем {tpl_style}, ширины и закрепление "
+         f"перенесены" if tpl else "образец оформления не найден: лист без оформления"),
         (f"оставляю только high и critical — удалено {len(drop)} из {len(data)} "
          f"(critical {sum(1 for _, r in kept if L.cell(r, idx, 'severity').lower() == 'critical')}, "
          f"high {sum(1 for _, r in kept if L.cell(r, idx, 'severity').lower() == 'high')})"
@@ -682,9 +717,6 @@ def main():
                 col.name = header_vals[i]
     if ws.auto_filter and ws.auto_filter.ref:
         ws.auto_filter.ref = rng
-
-    if from_csv:
-        style_csv_sheet(ws, hnum, rng, idx)
 
     wb.save(filtered)
 
