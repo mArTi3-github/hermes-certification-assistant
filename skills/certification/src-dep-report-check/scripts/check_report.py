@@ -123,11 +123,17 @@ def check_affirmative(comp, ver, vid, status, det):
     return None
 
 
-def check_version_text(comp, ver, vid, det):
+def check_version_text(comp, ver, vid, det, prod_ver=""):
     """Версия в тексте не совпадает с версией компонента (сравнение по major.minor).
 
     `1.3.1-r2` против `1.3.1.2` — одна и та же версия, это не расхождение; `17.7-0+deb13u1`
     против `18.1-1.pgdg13+2` — расхождение, текст говорит о другой ветке.
+
+    Первое число в тексте — не всегда версия компонента: рядом стоят версия образа
+    (`…в образе 6.3.4.2653`), версия другого пакета, адрес (`127.0.0.1`), номера протоколов.
+    Поэтому версия считается версией компонента, только если имя компонента стоит
+    в 60 символах перед ней, а кандидаты, совпадающие с версией продукта и похожие на адрес,
+    отбрасываются — иначе отчёт заполняется замечаниями о чужих версиях.
     """
     if not det:
         return None
@@ -145,6 +151,17 @@ def check_version_text(comp, ver, vid, det):
         if any(w in prefix for w in ("до ", "ранее", "ниже", "исправлен", "затронут", "уязвим",
                                      "начиная", "версии старше", "версий до")):
             continue
+        base = comp.split("/")[-1].split("@")[0].split("?")[0].strip().lower()
+        wide = det[max(0, m.start() - 60):m.start()].lower()
+        if base and not re.search(rf"\b{re.escape(base)}\b", wide):
+            continue      # версия чужого пакета, образа или протокола
+        if prod_ver:
+            pv = str(prod_ver).strip()
+            if cand == pv or L.ver_tuple(cand) == L.ver_tuple(pv):
+                continue  # версия самого продукта, а не компонента
+        parts = cand.split(".")
+        if len(parts) == 4 and all(p.isdigit() and int(p) < 256 for p in parts):
+            continue      # 127.0.0.1 — адрес, не версия
         t = L.ver_tuple(cand)
         if len(t) < 2 or any(t == o for o in own_variants) or any(t[:2] == o[:2] for o in own_variants):
             continue
@@ -644,7 +661,8 @@ def main():
                      check_non_use(comp, vid, det),
                      propose_detail(comp, ver, vid, det),
                      check_affirmative(comp, ver, vid, status, det),
-                     check_version_text(comp, ver, vid, det)):
+                     check_version_text(comp, ver, vid, det,
+                                         L.cell(r, idx, "product_version"))):
             if not cand:
                 continue
             key = (container, cand["kind"], comp, vid, cand.get("field"), cand["proposed"])
