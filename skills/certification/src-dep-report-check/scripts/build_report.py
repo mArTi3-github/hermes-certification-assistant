@@ -9,12 +9,17 @@
 и `status` — статусы могли измениться только у согласованных пунктов. Не прошла сверка —
 ненулевой код, файл результатом не считается.
 
+Новых листов в книге не появляется: применённые правки и журнал этапа дописываются в HTML-отчёт
+этапа 1 (раздел «Этап 2 — итоговый отчёт») и в `recommendations.json` (`stage2`). Пункт, у которого
+вместо номера строки стоит группа («1 стр.», «—»), не роняет прогон: он пропускается с причиной.
+
     python3 build_report.py <..._filtered.xlsx> --spec recommendations.json --approve-all
     python3 build_report.py <..._filtered.xlsx> --spec recommendations.json --approve 1,4,7
 """
 from __future__ import annotations
 
 import argparse
+import html
 import json
 import sys
 from datetime import datetime
@@ -23,10 +28,11 @@ from pathlib import Path
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 import srcdep_lib as L  # noqa: E402
 from openpyxl import load_workbook  # noqa: E402
-from openpyxl.styles import Alignment, Font  # noqa: E402
+from openpyxl.styles import Alignment  # noqa: E402
 
-BOLD = Font(bold=True)
 APPROVED = {"approve", "approved", "yes", "да", "принято"}
+STAGE2_BEGIN = "<!-- stage2:begin -->"
+STAGE2_END = "<!-- stage2:end -->"
 
 
 def parse_ids(text):
@@ -36,6 +42,45 @@ def parse_ids(text):
         if part.isdigit():
             out.add(int(part))
     return out
+
+
+def source_row(value):
+    """Номер строки исходника из спецификации; None — агрегат («1 стр.», «—»).
+
+    Пункты об ошибках разметки описывают не одну строку, а группу, и номером строки
+    у них стоит подпись. Согласовать такой пункт можно, применить правку к ячейке —
+    нельзя: он пропускается, а не роняет весь этап 2.
+    """
+    if isinstance(value, bool):
+        return None
+    if isinstance(value, int):
+        return value
+    text = str(value or "").strip()
+    return int(text) if text.isdigit() else None
+
+
+def update_html(html_path: Path, applied, j_lines, out_name):
+    """Дописать итог этапа 2 в HTML-отчёт: отдельных листов в xlsx не бывает."""
+    if not html_path.is_file():
+        return False
+    text = html_path.read_text(encoding="utf-8")
+    if STAGE2_BEGIN in text and STAGE2_END in text:
+        start = text.index(STAGE2_BEGIN)
+        end = text.index(STAGE2_END) + len(STAGE2_END)
+        text = text[:start] + text[end:]
+    body = "".join("<tr>" + "".join(f"<td>{html.escape(str(v))}</td>" for v in row) + "</tr>"
+                   for row in applied) or "<tr><td colspan='5'>Применённых правок нет.</td></tr>"
+    journal = "".join(f"<li>{html.escape(line)}</li>" for line in j_lines)
+    block = (f"{STAGE2_BEGIN}\n<h2>Этап 2 — итоговый отчёт</h2>\n"
+             f"<p>Согласованные пункты перенесены в <code>{html.escape(out_name)}</code>. "
+             "Отдельных листов в документе нет: применённые правки и журнал — здесь.</p>\n"
+             "<div class='tablewrap'><table><thead><tr><th>строка</th><th>поле</th><th>было</th>"
+             "<th>стало</th><th>основание</th></tr></thead>"
+             f"<tbody>{body}</tbody></table></div>\n"
+             f"<div class='note'><ul class='journal'>{journal}</ul></div>\n{STAGE2_END}")
+    text = text.replace("</main>", block + "\n</main>") if "</main>" in text else text + block
+    html_path.write_text(text, encoding="utf-8")
+    return True
 
 
 def main():
@@ -76,8 +121,11 @@ def main():
         if it["kind"] == "note" or not it.get("field"):
             skipped.append((it["id"], "замечание, не правка"))
             continue
-        src_row = it.get("row")
-        target = row_map.get(int(src_row)) if src_row not in ("", None) else None
+        src_row = source_row(it.get("row"))
+        if src_row is None:
+            skipped.append((it["id"], "агрегатная строка: правится в отчёте вручную"))
+            continue
+        target = row_map.get(src_row)
         if target is None:
             skipped.append((it["id"], "строка не найдена после удаления"))
             continue
@@ -88,30 +136,12 @@ def main():
         applied.append([target, it["field"], it.get("current", ""), it["proposed"],
                         f"согласовано, рекомендация №{it['id']}"])
 
-    if "Изменения" in wb.sheetnames:
-        ch = wb["Изменения"]
-    else:
-        ch = wb.create_sheet("Изменения")
-        ch.append(["строка", "поле", "было", "стало", "основание"])
-        for c in ch[1]:
-            c.font = BOLD
-    for row in applied:
-        ch.append(row)
-
     j_lines = [
         f"этап 2: применено согласованных правок {len(applied)} из {len(items)} предложений"
         + (f"; отклонено {len(reject)}" if reject else ""),
         f"пропущено: {len(skipped)}" + (f" ({skipped[0][1]}…)" if skipped else ""),
         "строки, id и purl не изменялись; статусы менялись только по согласованию",
     ]
-    lg = wb["Журнал"] if "Журнал" in wb.sheetnames else wb.create_sheet("Журнал")
-    start = lg.max_row + 1
-    for line in j_lines:
-        lg.append([start, line])
-        start += 1
-    for c in (lg.cell(row=lg.max_row, column=2),):
-        c.alignment = Alignment(wrap_text=True, vertical="top")
-    lg.column_dimensions["B"].width = 120
 
     stem = filtered.stem.replace("_filtered", "")
     name = f"{stem}_итоговый.xlsx"
@@ -167,6 +197,10 @@ def main():
         print("\n".join(["сверка не прошла:"] + problems[:10]), file=sys.stderr)
         sys.exit(1)
     tmp.replace(out)
+    html_path = filtered.parent / f"{stem}_recommendations.html"
+    in_html = update_html(html_path, applied, j_lines, out.name)
+    spec["stage2"] = {"out": str(out), "applied": applied, "skipped": skipped,
+                      "journal": j_lines, "html": str(html_path) if in_html else ""}
     spec_path.write_text(json.dumps(spec, ensure_ascii=False, indent=1), encoding="utf-8")
     print(json.dumps({"output": str(out), "applied": len(applied), "skipped": len(skipped),
                       "rows": len(data_out), "ts": datetime.now().strftime("%d.%m.%Y %H:%M")},
