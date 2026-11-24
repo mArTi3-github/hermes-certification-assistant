@@ -374,14 +374,22 @@ def read_table(path: Path):
     """
     if path.suffix.lower() == ".csv":
         import csv
-        enc = "utf-8-sig"
-        try:
-            path.read_text(encoding=enc)
-        except UnicodeDecodeError:
-            enc = "cp1251"
-        text = path.read_text(encoding=enc)
+        # csv не несёт кодировку: пробуем utf-8 (с BOM и без), затем cp1251/cp1252,
+        # а двойное перекодирование («РњС‹ РЅРµ») снимаем поячеечно — иначе обоснование
+        # триажа уезжает в xlsx мойибаке
+        raw = path.read_bytes()
+        text = None
+        for enc in ("utf-8-sig", "utf-8", "cp1251", "cp1252"):
+            try:
+                text = raw.decode(enc)
+                break
+            except UnicodeDecodeError:
+                continue
+        if text is None:
+            text = raw.decode("cp1251", errors="replace")
         delim = max((";", ",", "\t"), key=lambda d: text.split("\n", 1)[0].count(d))
-        rows = [(i + 1, r) for i, r in enumerate(csv.reader(text.splitlines(), delimiter=delim))]
+        rows = [(i + 1, [fix_mojibake(c) for c in r])
+                for i, r in enumerate(csv.reader(text.splitlines(), delimiter=delim))]
         hnum, hdr = find_header(rows)
         if not hdr:
             raise SystemExit("шапка отчёта не найдена")

@@ -2,7 +2,8 @@
 """Этап 1 — правка отчёта: промежуточный `_filtered.xlsx` + HTML-отчёт с рекомендациями.
 
 Что делает:
-  1) удаляет строки, у которых severity не `high`/`critical` (лишние компоненты);
+  1) по флагу --only-high-critical удаляет строки с severity вне high/critical
+       (по умолчанию строки сохраняются), задаёт оформление листа из csv;
   2) правит орфографию и формат в `detail` (без согласования, с записью в «Изменения»);
   3) собирает рекомендации — смена статуса, правка обоснований, замечания к разметке —
      и складывает их в отдельный HTML-отчёт `recommendations.html`. Машиночитаемая копия
@@ -376,11 +377,50 @@ def audit_book(wb, idx):
     return out
 
 
+def style_csv_sheet(ws, hnum, rng, idx):
+    """Оформление листа, собранного из csv: у csv оформления нет, его надо задать.
+
+    Шапка — заливка, жирный белый шрифт, рамки и перенос; тело — рамки, выравнивание
+    по верху, перенос длинного обоснования; автофильтр по шапке, закрепление шапки,
+    ширины по смыслу колонок. Строки не подсвечиваются: цвет в отчёте только у шапки.
+    """
+    from openpyxl.styles import Alignment, Border, Font, PatternFill, Side
+    from openpyxl.utils import get_column_letter
+
+    head_fill = PatternFill("solid", fgColor="1F3864")
+    thin = Side(style="thin", color="BFBFBF")
+    border = Border(left=thin, right=thin, top=thin, bottom=thin)
+    widths = {"product_name": 22, "product_version": 17, "product_purl": 46,
+              "component": 40, "vuln_id": 17, "severity": 11, "status": 15, "detail": 70}
+    last_row, last_col = ws.max_row, ws.max_column
+    for c in range(1, last_col + 1):
+        cell = ws.cell(row=hnum, column=c)
+        cell.font = Font(bold=True, color="FFFFFF")
+        cell.fill = head_fill
+        cell.alignment = Alignment(horizontal="center", vertical="center", wrap_text=True)
+        cell.border = border
+        name = str(cell.value or "").strip()
+        field = next((f for f, i in idx.items() if i == c - 1), "")
+        letter = get_column_letter(c)
+        ws.column_dimensions[letter].width = widths.get(
+            name, widths.get(field, 20))
+    for r in range(hnum + 1, last_row + 1):
+        for c in range(1, last_col + 1):
+            cell = ws.cell(row=r, column=c)
+            cell.border = border
+            cell.alignment = Alignment(vertical="top", wrap_text=True)
+    ws.row_dimensions[hnum].height = 30
+    ws.auto_filter.ref = rng
+    ws.freeze_panes = ws.cell(row=hnum + 1, column=1).coordinate
+
+
 def main():
     ap = argparse.ArgumentParser()
     ap.add_argument("source", nargs="?")
     ap.add_argument("--outdir", default=None, help="каталог результата (по умолчанию src-dep-report-check)")
     ap.add_argument("--no-nvd", action="store_true", help="не ходить в NVD за диапазонами версий")
+    ap.add_argument("--only-high-critical", action="store_true",
+                    help="удалить строки с уровнем вне high/critical (по умолчанию строки сохраняются)")
     ap.add_argument("--cache-dir", default=str(Path.home() / ".cache" / "src-dep-report-check"))
     ap.add_argument("--workdir", default=None,
                     help="где держать машиночитаемую спецификацию (по умолчанию ~/.cache/src-dep-report-check/work)")
@@ -395,12 +435,13 @@ def main():
     html_out = outdir / f"{src.stem}_recommendations.html"
 
     wb, sheet, hnum, idx, rows = L.read_table(src)
+    from_csv = wb is None
     if wb is None:  # csv: собираем книгу в памяти, чтобы правки шли тем же путём
         from openpyxl import Workbook
         wb = Workbook()
         ws = wb.active
-        ws.title = "csv"
-        sheet = "csv"
+        ws.title = "Отчёт"
+        sheet = "Отчёт"
         for _, r in rows:
             ws.append(["" if c is None else c for c in r])
         rows = [(i, [c.value for c in row]) for i, row in enumerate(ws.iter_rows(), 1)]
@@ -421,7 +462,7 @@ def main():
         audit.append(("данные взяты из выгрузки CSV в одной колонке",
                       f"лист «{src_ws.title}» шириной {src_ws.max_column} колонка; текст в cp1251-мojibake "
                       f"восстановлен, перенесён в чистый лист «Отчёт», исходный лист в результат не входит"))
-    # --- удаление строк вне high/critical
+    # --- удаление строк вне high/critical (только с --only-high-critical)
     ws = wb[sheet]
     # служебная строка выгрузки `Column1 … Column8` над шапкой: в отчёте ей делать нечего
     import re as _re
@@ -456,7 +497,9 @@ def main():
         if not name and not comp:
             return "нет названия продукта"
         return ""
-    drop = [n for n, r in data
+    # фильтр по уровню опасности — только по прямому указанию: по умолчанию в отчёте
+    # остаются все валидные строки, иначе из размеченного отчёта пропадают находки
+    drop = [] if not getattr(a, "only_high_critical", False) else [n for n, r in data
             if L.cell(r, idx, "severity").lower() in VALID_SEVERITY
             and L.cell(r, idx, "severity").lower() not in L.ALLOWED_SEVERITY]
     # «просто набор букв»: одна-три такие строки остаются в отчёте и уходят замечанием,
@@ -603,9 +646,14 @@ def main():
         f"удалены служебные строки Column над шапкой: {len(service)}",
         f"удалено пустых строк в диапазоне: {len(empty)} (в рекомендации не описываются)",
         f"сняты внешние данные и служебные структуры: {external}",
-        f"оставляю только high и critical — удалено {len(drop)} из {len(data)} "
-        f"(critical {sum(1 for _, r in kept if L.cell(r, idx, 'severity').lower() == 'critical')}, "
-        f"high {sum(1 for _, r in kept if L.cell(r, idx, 'severity').lower() == 'high')})",
+        (f"оставляю только high и critical — удалено {len(drop)} из {len(data)} "
+         f"(critical {sum(1 for _, r in kept if L.cell(r, idx, 'severity').lower() == 'critical')}, "
+         f"high {sum(1 for _, r in kept if L.cell(r, idx, 'severity').lower() == 'high')})"
+         if drop else
+         "уровни сохранены — строки вне high/critical не удалялись: "
+         + ", ".join(f"{sev} {cnt}" for sev, cnt in sorted(
+             __import__("collections").Counter(
+                 L.cell(r, idx, "severity").lower() for _, r in kept).items()))),
         f"проверяю орфографию — правлено ячеек: {typos} (опечатки и формат)",
         f"статусы, id и purl не изменялись: предложения вынесены в {html_out.name}",
         (f"удалено нечитаемых строк: {len(junk)} (больше трёх или все строки нечитаемы)"
@@ -634,6 +682,9 @@ def main():
                 col.name = header_vals[i]
     if ws.auto_filter and ws.auto_filter.ref:
         ws.auto_filter.ref = rng
+
+    if from_csv:
+        style_csv_sheet(ws, hnum, rng, idx)
 
     wb.save(filtered)
 
