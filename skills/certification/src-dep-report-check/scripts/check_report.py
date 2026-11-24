@@ -679,8 +679,8 @@ def main():
         f"удалены служебные строки Column над шапкой: {len(service)}",
         f"удалено пустых строк в диапазоне: {len(empty)} (в рекомендации не описываются)",
         f"сняты внешние данные и служебные структуры: {external}",
-        (f"оформление по образцу {tpl.name}: таблица со стилем {tpl_style}, ширины и закрепление "
-         f"перенесены" if tpl else "образец оформления не найден: лист без оформления"),
+        (f"оформление взято с образца {tpl.name}: таблица со стилем {tpl_style}, ширины колонок "
+         f"и закрепление — как в образце" if tpl else "образец оформления не найден: лист без оформления"),
         (f"оставляю только high и critical — удалено {len(drop)} из {len(data)} "
          f"(critical {sum(1 for _, r in kept if L.cell(r, idx, 'severity').lower() == 'critical')}, "
          f"high {sum(1 for _, r in kept if L.cell(r, idx, 'severity').lower() == 'high')})"
