@@ -5,6 +5,8 @@
 
 ## Unreleased
 
+## 1.33.1 — 2026-11-25
+
 - 2026-11-25 — dist-fuzz-report-check: сводка покрытия по LCOV .info и проверки повторной подачи; profile-contribution: второй PR с той же ветки, окно --accept, что отвечать на «проверь мой PR» (mArTi3-github)
 
 ## 1.33.0 — 2026-11-25
