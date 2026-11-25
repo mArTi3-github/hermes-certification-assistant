@@ -2,7 +2,8 @@
 """Этап 1 — правка отчёта: промежуточный `_filtered.xlsx` + HTML-отчёт с рекомендациями.
 
 Что делает:
-  1) удаляет строки, у которых severity не `high`/`critical` (лишние компоненты);
+  1) удаляет строки с severity вне high/critical (флаг --keep-all-levels сохраняет их),
+       задаёт оформление листа из csv;
   2) правит орфографию и формат в `detail` (без согласования, с записью в «Изменения»);
   3) собирает рекомендации — смена статуса, правка обоснований, замечания к разметке —
      и складывает их в отдельный HTML-отчёт `recommendations.html`. Машиночитаемая копия
@@ -80,10 +81,9 @@ def propose_detail(comp, ver, vid, det):
     """
     name = comp.split("/")[-1].split("@")[0] if comp else "компонента"
     if not det:
-        return {"kind": "detail", "field": "detail",
-                "proposed": f"Уязвимость заявлена для {name}, поставленного в составе продукта; "
-                            f"необходимо заполнить обоснование.",
-                "basis": "поле пустое", "source": "правило 3", "strength": "необходимо утвердить"}
+        # пустое поле — не «обоснование к уточнению»: строка попадает в раздел «Пустые поля»,
+        # второго пункта по той же строке не создаётся
+        return None
     if vid in COMPLETIONS and (L.is_broken(det) or L.WRONG_PRODUCT.match(det)):
         return {"kind": "detail", "field": "detail", "proposed": COMPLETIONS[vid],
                 "basis": "формулировка оборвана или называет чужой продукт",
@@ -123,11 +123,17 @@ def check_affirmative(comp, ver, vid, status, det):
     return None
 
 
-def check_version_text(comp, ver, vid, det):
+def check_version_text(comp, ver, vid, det, prod_ver=""):
     """Версия в тексте не совпадает с версией компонента (сравнение по major.minor).
 
     `1.3.1-r2` против `1.3.1.2` — одна и та же версия, это не расхождение; `17.7-0+deb13u1`
     против `18.1-1.pgdg13+2` — расхождение, текст говорит о другой ветке.
+
+    Первое число в тексте — не всегда версия компонента: рядом стоят версия образа
+    (`…в образе 6.3.4.2653`), версия другого пакета, адрес (`127.0.0.1`), номера протоколов.
+    Поэтому версия считается версией компонента, только если имя компонента стоит
+    в 60 символах перед ней, а кандидаты, совпадающие с версией продукта и похожие на адрес,
+    отбрасываются — иначе отчёт заполняется замечаниями о чужих версиях.
     """
     if not det:
         return None
@@ -145,6 +151,17 @@ def check_version_text(comp, ver, vid, det):
         if any(w in prefix for w in ("до ", "ранее", "ниже", "исправлен", "затронут", "уязвим",
                                      "начиная", "версии старше", "версий до")):
             continue
+        base = comp.split("/")[-1].split("@")[0].split("?")[0].strip().lower()
+        wide = det[max(0, m.start() - 60):m.start()].lower()
+        if base and not re.search(rf"\b{re.escape(base)}\b", wide):
+            continue      # версия чужого пакета, образа или протокола
+        if prod_ver:
+            pv = str(prod_ver).strip()
+            if cand == pv or L.ver_tuple(cand) == L.ver_tuple(pv):
+                continue  # версия самого продукта, а не компонента
+        parts = cand.split(".")
+        if len(parts) == 4 and all(p.isdigit() and int(p) < 256 for p in parts):
+            continue      # 127.0.0.1 — адрес, не версия
         t = L.ver_tuple(cand)
         if len(t) < 2 or any(t == o for o in own_variants) or any(t[:2] == o[:2] for o in own_variants):
             continue
@@ -156,11 +173,11 @@ def check_version_text(comp, ver, vid, det):
 
 
 def build(items, meta, journal, html_path: Path, changes=None):
-    def rows(kind):
-        return [i for i in items if i["kind"] == kind]
+    def rows(kind, pred=None):
+        return [i for i in items if i["kind"] == kind and (pred is None or pred(i))]
 
-    def table(kind, head, cols, cls=""):
-        data = rows(kind)
+    def table(kind, head, cols, cls="", pred=None):
+        data = rows(kind, pred)
         if kind == "defect":
             if not data:
                 return "<p class='empty'>Дефектов не найдено.</p>"
@@ -195,19 +212,25 @@ def build(items, meta, journal, html_path: Path, changes=None):
     nts = rows("note")
     errs = rows("error")
     stat = Counter(i["proposed"] for i in st)
+    # каждое число статистики ведёт в свой раздел: цифра без списка строк не проверяется
     cards = [
-        ("строк в отчёте", meta["rows_in"]),
-        ("удалено (severity вне high/critical)", meta["rows_dropped"]),
-        ("исправлено опечаток и формата", meta["typos"]),
-        ("рекомендаций по статусу", len(st)),
-        ("рекомендаций по обоснованию", len(det)),
-        ("необходимо заполнить", sum(1 for i in items if i["kind"] == "fill")),
-        ("ошибок разметки (красным)", len(errs)),
-        ("дефектов файла", sum(1 for i in items if i["kind"] == "defect")),
-        ("замечаний к разметке", len(nts)),
+        ("sec-composition", "строк в отчёте", meta["rows_in"]),
+        ("sec-deleted-severity", "удалено (severity вне high/critical)", meta["rows_dropped"]),
+        ("sec-changes", "исправлено опечаток и формата", meta["typos"]),
+        ("sec-status", "рекомендаций по статусу", len(st)),
+        ("sec-detail", "рекомендаций по обоснованию", len(det)),
+        ("sec-empty", "пустых полей", sum(1 for i in items if i["kind"] == "fill")),
+        ("sec-badfields", "ошибок разметки (красным)", len(errs)),
+        ("sec-defects", "дефектов файла", sum(1 for i in items if i["kind"] == "defect")),
+        ("sec-notes", "замечаний к разметке", len(nts)),
     ]
-    cards_html = "".join(f"<div class='card'><div class='n'>{v}</div>"
-                         f"<div class='l'>{html.escape(k)}</div></div>" for k, v in cards)
+    cards_html = "".join(f"<a class='card' href='#{a}'><div class='n'>{v}</div>"
+                         f"<div class='l'>{html.escape(k)}</div></a>" for a, k, v in cards)
+    containers = meta.get("containers") or {}
+    comp_body = "".join(f"<tr><td>{html.escape(str(k))}</td><td class='num'>{v}</td></tr>"
+                        for k, v in sorted(containers.items(), key=lambda x: (-x[1], str(x[0]))))
+    composition_html = ("<div class='tablewrap'><table><thead><tr><th>контейнер</th><th>строк</th>"
+                        f"</tr></thead><tbody>{comp_body}</tbody></table></div>")
     stat_html = "".join(f"<li><code>{html.escape(k)}</code> — {v}</li>" for k, v in stat.most_common())
     journal_html = "".join(f"<li>{html.escape(j)}</li>" for j in journal)
     cols = ["№", "строка", "контейнер", "компонент", "CVE", "сейчас", "предлагаю", "основание",
@@ -215,6 +238,8 @@ def build(items, meta, journal, html_path: Path, changes=None):
     cols_err = ["№", "строка", "контейнер", "компонент", "CVE", "сейчас", "предлагаю", "основание"]
     cols_defect = ["№", "что найдено", "подробности"]
     cols_fill = ["№", "строка", "контейнер", "компонент", "CVE", "пусто", "что сделать"]
+    cols_note = ["№", "строка", "контейнер", "компонент", "CVE", "предлагаю", "основание"]
+    cols_dropped = ["№", "строка", "контейнер", "компонент", "CVE", "сейчас", "предлагаю", "основание"]
     changes = changes or []
     if changes:
         body = "".join("<tr>" + "".join(f"<td>{html.escape(str(v))}</td>" for v in row) + "</tr>"
@@ -241,6 +266,9 @@ def build(items, meta, journal, html_path: Path, changes=None):
  .card {{ flex:1 1 170px; background:#fff; border:1px solid var(--line); border-radius:10px; padding:14px 16px; }}
  .card .n {{ font-size:24px; font-weight:700; }}
  .card .l {{ color:var(--muted); font-size:12.5px; margin-top:2px; }}
+ a.card {{ text-decoration:none; color:inherit; display:block; }}
+ a.card:hover {{ border-color:var(--accent); box-shadow:0 0 0 2px #dbe7f6; }}
+ h2 {{ scroll-margin-top:12px; }}
  .tablewrap {{ overflow-x:auto; border:1px solid var(--line); border-radius:10px; background:#fff; }}
  table {{ width:100%; min-width:1080px; border-collapse:collapse; font-size:12.8px; }}
  th, td {{ border-bottom:1px solid var(--line); border-right:1px solid var(--line); padding:7px 9px;
@@ -272,30 +300,42 @@ def build(items, meta, journal, html_path: Path, changes=None):
  <code>{html.escape(meta['filtered'])}</code> · сформировано {meta['ts']}<br>
  Статусы, идентификаторы и purl в отчёте не изменялись: всё перечисленное — предложения.</div>
 <div class="cards">{cards_html}</div>
-<h2>Смена статуса</h2>
+<h2 id="sec-composition">Состав отчёта</h2>
+<p>Строки, оставшиеся в отчёте после фильтра, по контейнерам продукта.</p>
+{composition_html}
+<h2 id="sec-deleted-severity">Удалённые строки: уровень опасности</h2>
+<p>Все строки с уровнем вне high/critical, удалённые из отчёта, с номерами в исходнике.</p>
+{table("dropped", "Удалённые строки", cols_dropped)}
+<h2 id="sec-status">Смена статуса</h2>
 <p>Предлагаемые статусы:</p><ul>{stat_html or '<li>нет</li>'}</ul>
 {table("status", "Статусы к утверждению", cols)}
-<h2>Правка обоснований</h2>
-{table("detail", "Обоснования к уточнению",
-       ["№", "строка", "контейнер", "компонент", "CVE", "сейчас", "предлагаю", "основание"])}
-<h2>Необходимо заполнить</h2>
-<p>Поля, пустые в исходном отчёте: без них статус разметки не подтверждён.</p>
-{table("fill", "Незаполненные поля", cols_fill)}
-<h2>Ошибки разметки</h2>
-<p>Красным выделены строки с ошибками человека: обоснование через неиспользуемость, недопустимые
-значения полей, нечитаемые строки, удалённые из отчёта.</p>
-{table("error", "Строки с ошибками разметки", cols_err, "errs")}
-<h2>Дефекты файла</h2>
+<h2 id="sec-detail">Правка обоснований</h2>
+{table("detail", "Обоснования к уточнению", cols_err)}
+<h2 id="sec-empty">Пустые поля</h2>
+<p>Поля, пустые в исходном отчёте: без них статус разметки не подтверждён. Строка перечислена
+здесь один раз — отдельного пункта по обоснованию для неё нет.</p>
+{table("fill", "Пустые поля", cols_fill)}
+<h2 id="sec-nonuse">Неиспользуемость в обосновании</h2>
+<p>Тезис о том, что компонент не применяется или код недостижим, проверяемым основанием не является.</p>
+{table("error", "Обоснование через неиспользуемость", cols_err, "errs",
+       lambda i: i.get("field") == "detail")}
+<h2 id="sec-badfields">Недопустимые значения полей</h2>
+<p>Уровень опасности и статус вне словаря: такие строки не проходят проверку разметки.</p>
+{table("error", "Недопустимые значения", cols_err, "errs",
+       lambda i: i.get("field") in ("уровень", "статус", "структура"))}
+<h2 id="sec-unreadable">Нечитаемые строки</h2>
+<p>Эти строки остаются в отчёте, но в проверки не идут: нужно исправить данные или удалить строку.</p>
+{table("note", "Нечитаемые строки", cols_note, "", lambda i: i.get("field") == "разметка")}
+<h2 id="sec-notes">Прочие замечания к разметке</h2>
+{table("note", "Замечания", cols_note, "", lambda i: i.get("field") != "разметка")}
+<h2 id="sec-defects">Дефекты файла</h2>
 <p>Это не ошибки разметки: особенности выгрузки — служебные строки, одноколоночный CSV, кодировка.</p>
 {table("defect", "Дефекты исходного файла", cols_defect)}
-<h2>Замечания к разметке</h2>
-{table("note", "Замечания",
-       ["№", "строка", "контейнер", "компонент", "CVE", "предлагаю", "основание"])}
-<h2>Внесённые правки</h2>
+<h2 id="sec-changes">Внесённые правки</h2>
 <p>Правки орфографии и формата в самом отчёте. Отдельного листа в документе нет: всё, что
 изменено, перечислено здесь.</p>
 {changes_html}
-<h2>Журнал этапа</h2>
+<h2 id="sec-journal">Журнал этапа</h2>
 <div class="note"><ul class="journal">{journal_html}</ul></div>
 </main></body></html>"""
     html_path.write_text(doc, encoding="utf-8")
@@ -376,11 +416,75 @@ def audit_book(wb, idx):
     return out
 
 
+def find_template(src: Path, explicit=None):
+    """Образец оформления: явный путь, затем каталог «пример» рядом с отчётом, затем встроенный."""
+    if explicit:
+        p = Path(explicit).expanduser()
+        return p if p.exists() else None
+    ex = src.parent / "пример"
+    if ex.is_dir():
+        for f in sorted(ex.glob("*.xlsx")):
+            if not f.name.startswith("~$"):
+                return f
+    builtin = Path(__file__).resolve().parent.parent / "assets" / "report-template.xlsx"
+    return builtin if builtin.exists() else None
+
+
+def apply_template(ws, ncols, nrows, tpl: Path):
+    """Наложить оформление образца на лист, собранный из csv.
+
+    csv не несёт ни ширин, ни шрифтов, ни фильтров, поэтому вид берётся с образца: ширины колонок,
+    таблица со стилем (полосы и кнопки фильтра), закрепление шапки, её высота. Строки данных
+    отдельно не красятся — цвет даёт стиль таблицы, как в образце.
+    """
+    from openpyxl.utils import get_column_letter
+    from openpyxl.worksheet.table import Table, TableStyleInfo
+
+    twb = load_workbook(tpl)
+    tws = twb[twb.sheetnames[0]]
+    # цвет стиля таблицы берётся из темы книги: без темы образца Medium7 даёт оранжевый
+    # (в теме по умолчанию openpyxl accent6 = F79646) вместо зелёного 70AD47 из образца
+    try:
+        ws.parent.loaded_theme = twb.loaded_theme
+    except Exception:
+        pass
+    for i in range(1, ncols + 1):
+        dim = tws.column_dimensions.get(get_column_letter(i))
+        if dim is not None and dim.width:
+            ws.column_dimensions[get_column_letter(i)].width = dim.width
+    style = ("TableStyleMedium7", True, False, False, False)
+    for t in tws.tables.values():
+        ti = getattr(t, "tableStyleInfo", None)
+        if ti is not None:
+            style = (ti.name or "TableStyleMedium7", bool(ti.showRowStripes),
+                     bool(ti.showFirstColumn), bool(ti.showLastColumn),
+                     bool(ti.showColumnStripes))
+        break
+    # имя таблицы — только латиница, цифры и подчёркивания: кириллицу Excel принимает не везде
+    base = re.sub(r"[^A-Za-z0-9]+", "_", ws.title).strip("_")[:24]
+    name = ("report_" + base) if base else "report_data"
+    table = Table(displayName=name or "report_table",
+                  ref=f"A1:{get_column_letter(ncols)}{nrows}")
+    table.tableStyleInfo = TableStyleInfo(name=style[0], showFirstColumn=style[2],
+                                          showLastColumn=style[3], showRowStripes=style[1],
+                                          showColumnStripes=style[4])
+    ws.add_table(table)
+    if tws.freeze_panes:
+        ws.freeze_panes = tws.freeze_panes
+    if tws.row_dimensions[1].height:
+        ws.row_dimensions[1].height = tws.row_dimensions[1].height
+    return style[0]
+
+
 def main():
     ap = argparse.ArgumentParser()
     ap.add_argument("source", nargs="?")
     ap.add_argument("--outdir", default=None, help="каталог результата (по умолчанию src-dep-report-check)")
     ap.add_argument("--no-nvd", action="store_true", help="не ходить в NVD за диапазонами версий")
+    ap.add_argument("--template", default=None,
+                    help="образец оформления (xlsx); по умолчанию ищется в каталоге «пример» рядом с отчётом")
+    ap.add_argument("--keep-all-levels", action="store_true",
+                    help="не удалять строки с уровнем вне high/critical (по умолчанию удаляются)")
     ap.add_argument("--cache-dir", default=str(Path.home() / ".cache" / "src-dep-report-check"))
     ap.add_argument("--workdir", default=None,
                     help="где держать машиночитаемую спецификацию (по умолчанию ~/.cache/src-dep-report-check/work)")
@@ -395,15 +499,20 @@ def main():
     html_out = outdir / f"{src.stem}_recommendations.html"
 
     wb, sheet, hnum, idx, rows = L.read_table(src)
+    from_csv = wb is None
+    tpl, tpl_style = None, ""      # образец оформления нужен только для csv
     if wb is None:  # csv: собираем книгу в памяти, чтобы правки шли тем же путём
         from openpyxl import Workbook
         wb = Workbook()
         ws = wb.active
-        ws.title = "csv"
-        sheet = "csv"
+        ws.title = "Отчёт"
+        sheet = "Отчёт"
         for _, r in rows:
             ws.append(["" if c is None else c for c in r])
         rows = [(i, [c.value for c in row]) for i, row in enumerate(ws.iter_rows(), 1)]
+        # оформление — до анализа: правки и удаления идут уже по оформленному листу
+        tpl = find_template(src, a.template)
+        tpl_style = apply_template(ws, ws.max_column, ws.max_row, tpl) if tpl else ""
     audit = audit_book(wb, idx)
     external = neutralise_query_tables(wb)
     src_ws = wb[sheet]
@@ -421,7 +530,7 @@ def main():
         audit.append(("данные взяты из выгрузки CSV в одной колонке",
                       f"лист «{src_ws.title}» шириной {src_ws.max_column} колонка; текст в cp1251-мojibake "
                       f"восстановлен, перенесён в чистый лист «Отчёт», исходный лист в результат не входит"))
-    # --- удаление строк вне high/critical
+    # --- удаление строк вне high/critical (сохранить их можно флагом --keep-all-levels)
     ws = wb[sheet]
     # служебная строка выгрузки `Column1 … Column8` над шапкой: в отчёте ей делать нечего
     import re as _re
@@ -456,7 +565,9 @@ def main():
         if not name and not comp:
             return "нет названия продукта"
         return ""
-    drop = [n for n, r in data
+    # по умолчанию из отчёта уходят все валидные строки вне high/critical: отчёт
+    # собирается только по high и critical, сохранение остальных — отдельный флаг
+    drop = [] if getattr(a, "keep_all_levels", False) else [n for n, r in data
             if L.cell(r, idx, "severity").lower() in VALID_SEVERITY
             and L.cell(r, idx, "severity").lower() not in L.ALLOWED_SEVERITY]
     # «просто набор букв»: одна-три такие строки остаются в отчёте и уходят замечанием,
@@ -470,19 +581,24 @@ def main():
                                             if L.cell(r, idx, f))))
     # полностью пустые строки в диапазоне — тоже не данные: в выгрузках между блоками их сотни
     empty = [n for n, r in rows if n > hnum and not any(str(c or "").strip() for c in r)]
-    # одна-три нечитаемые строки остаются в файле (правит владелец разметки), но в проверки
-    # не идут; больше трёх или все строки нечитаемы — удаляем: отчёт из них не собирается
+    # нечитаемые строки из отчёта не удаляются никогда: это чужая разметка, решение принимает
+    # владелец. В проверках они не участвуют, но в файле остаются и описываются замечаниями
     junk_rows = {x[0] for x in junk}
-    delete_junk = bool(junk) and (len(junk) > 3 or len(junk) == len(data))
-    dropped_junk = junk_rows if delete_junk else set()
-    for n in sorted(set(drop) | set(empty) | dropped_junk, reverse=True):
+    for n in sorted(set(drop) | set(empty), reverse=True):
         ws.delete_rows(n, 1)
     kept = [(n, r) for n, r in data if n not in set(drop) and n not in junk_rows]
+    dropped_rows = [{"row": n,
+                     "container": L.cell(r, idx, "product_name") or L.cell(r, idx, "product_purl") or "—",
+                     "component": L.cell(r, idx, "component") or "—",
+                     "vuln": L.cell(r, idx, "vuln_id") or "—",
+                     "severity": L.cell(r, idx, "severity") or "—"} for n, r in data if n in set(drop)]
+    by_container = __import__("collections").Counter(
+        (L.cell(r, idx, "product_name") or L.cell(r, idx, "product_purl") or "—") for _, r in kept)
 
     # --- орфография и формат
     changes, typos = [], 0
     det_i = idx.get("detail")
-    removed = set(drop) | set(empty) | dropped_junk
+    removed = set(drop) | set(empty)
     shift = {n: n - sum(1 for d in removed if d < n) for n, _ in kept}
     for n, r in kept:
         if det_i is None:
@@ -539,7 +655,8 @@ def main():
                      check_non_use(comp, vid, det),
                      propose_detail(comp, ver, vid, det),
                      check_affirmative(comp, ver, vid, status, det),
-                     check_version_text(comp, ver, vid, det)):
+                     check_version_text(comp, ver, vid, det,
+                                         L.cell(r, idx, "product_version"))):
             if not cand:
                 continue
             key = (container, cand["kind"], comp, vid, cand.get("field"), cand["proposed"])
@@ -551,30 +668,13 @@ def main():
                           "current": cand.get("current", det if cand["field"] == "detail"
                                               else status), **cand})
 
-    if delete_junk:
-        by_reason = {}
-        for n, why, snippet in junk:
-            by_reason.setdefault(why, []).append((n, snippet))
-        for why, rows_ in by_reason.items():
-            items.append({"id": len(items) + 1, "row": f"{len(rows_)} стр.", "container": "—",
-                          "component": "—", "vuln": "—", "kind": "error", "field": "удаление",
-                          "level": "error", "current": "—",
-                          "proposed": "строка удалена из отчёта",
-                          "basis": f"удалены нечитаемые строки ({why}), таких строк {len(junk)} "
-                                   f"из {len(data)}: "
-                                   + "; ".join(f"исходник r{n}: «{sn[:70]}»" for n, sn in rows_[:6])
-                                   + (" …" if len(rows_) > 6 else ""),
-                          "source": "построчная проверка", "strength": "ошибка"})
-    else:
-        # немного нечитаемых строк — не повод их выкидывать: решает владелец разметки
-        for n, why, snippet in junk:
-            items.append({"id": len(items) + 1, "row": n, "container": "—", "component": "—",
-                          "vuln": "—", "kind": "note", "field": "разметка", "level": "info",
-                          "current": snippet or "—",
-                          "proposed": "исправить строку или удалить её из отчёта",
-                          "basis": f"строка не читается ({why}); из отчёта не удалена — "
-                                   f"нечитаемых строк {len(junk)} из {len(data)}",
-                          "source": "построчная проверка", "strength": "замечание"})
+    for n, why, snippet in junk:
+        items.append({"id": len(items) + 1, "row": n, "container": "—", "component": "—",
+                      "vuln": "—", "kind": "note", "field": "разметка", "level": "info",
+                      "current": snippet or "—",
+                      "proposed": "исправить строку или удалить её из отчёта",
+                      "basis": f"строка не читается ({why}); из отчёта не удалена",
+                      "source": "построчная проверка", "strength": "замечание"})
 
     for what, desc in audit:
         items.append({"id": len(items) + 1, "row": "—", "container": "—", "component": "—",
@@ -603,14 +703,19 @@ def main():
         f"удалены служебные строки Column над шапкой: {len(service)}",
         f"удалено пустых строк в диапазоне: {len(empty)} (в рекомендации не описываются)",
         f"сняты внешние данные и служебные структуры: {external}",
-        f"оставляю только high и critical — удалено {len(drop)} из {len(data)} "
-        f"(critical {sum(1 for _, r in kept if L.cell(r, idx, 'severity').lower() == 'critical')}, "
-        f"high {sum(1 for _, r in kept if L.cell(r, idx, 'severity').lower() == 'high')})",
+        (f"оформление взято с образца {tpl.name}: таблица со стилем {tpl_style}, ширины колонок "
+         f"и закрепление — как в образце" if tpl else "образец оформления не найден: лист без оформления"),
+        (f"оставляю только high и critical — удалено {len(drop)} из {len(data)} "
+         f"(critical {sum(1 for _, r in kept if L.cell(r, idx, 'severity').lower() == 'critical')}, "
+         f"high {sum(1 for _, r in kept if L.cell(r, idx, 'severity').lower() == 'high')})"
+         if drop else
+         "уровни сохранены — строки вне high/critical не удалялись: "
+         + ", ".join(f"{sev} {cnt}" for sev, cnt in sorted(
+             __import__("collections").Counter(
+                 L.cell(r, idx, "severity").lower() for _, r in kept).items()))),
         f"проверяю орфографию — правлено ячеек: {typos} (опечатки и формат)",
         f"статусы, id и purl не изменялись: предложения вынесены в {html_out.name}",
-        (f"удалено нечитаемых строк: {len(junk)} (больше трёх или все строки нечитаемы)"
-         if delete_junk else
-         f"нечитаемых строк: {len(junk)} — оставлены в отчёте, вынесены в замечания"),
+        f"нечитаемых строк: {len(junk)} — оставлены в отчёте, вынесены в замечания",
         f"рекомендаций: статус {sum(1 for i in items if i['kind'] == 'status')}, "
         f"обоснование {sum(1 for i in items if i['kind'] == 'detail')}, "
         f"замечания {sum(1 for i in items if i['kind'] == 'note')}, "
@@ -637,7 +742,8 @@ def main():
 
     wb.save(filtered)
 
-    meta = {"source": str(src), "source_name": src.name, "filtered": str(filtered),
+    meta = {"containers": dict(by_container), "dropped": dropped_rows,
+            "source": str(src), "source_name": src.name, "filtered": str(filtered),
             "rows_in": len(data), "rows_dropped": len(drop), "typos": typos,
             "ts": datetime.now().strftime("%d.%m.%Y %H:%M")}
     workdir = Path(a.workdir).expanduser() if a.workdir else Path(a.cache_dir) / "work"
