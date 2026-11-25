@@ -5,6 +5,8 @@
 
 ## Unreleased
 
+- 2026-11-26 — profile-contribution: sync.sh --force снимает дельту всех неопубликованных скиллов — копировать каталоги всех ≠ перед синхронизацией (mArTi3-github)
+
 ## 1.33.1 — 2026-11-25
 
 - 2026-11-25 — dist-fuzz-report-check: сводка покрытия по LCOV .info и проверки повторной подачи; profile-contribution: второй PR с той же ветки, окно --accept, что отвечать на «проверь мой PR» (mArTi3-github)
