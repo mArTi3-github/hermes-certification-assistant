@@ -1,7 +1,7 @@
 ---
 name: hermes-agent-notes
 description: "Дополнения к hermes-agent: контекст, доступ, шаринг."
-version: 1.0.1
+version: 1.0.2
 metadata:
   hermes:
     tags: [hermes, context, compression, remote-access, profiles, team]
