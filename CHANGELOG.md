@@ -5,6 +5,8 @@
 
 ## Unreleased
 
+- 2026-11-25 — check-prep-info: новый скилл проверки PREP.INFO (BarniKviks)
+
 ## 1.32.0 — 2026-11-25
 
 - 2026-11-25 — profile-contribution: линт проверяет опубликованный набор (копия в TMPDIR), дополнение строки про предполётный линт (mArTi3-github)
