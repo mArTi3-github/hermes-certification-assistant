@@ -10,7 +10,7 @@
 Перед копированием убедиться, что из проверяемого скилла ничего не теряется:
 
 ```bash
-R=~/work/hermes-certification-assistant-github; S=certification/<скилл>; H="$HERMES_HOME/skills/$S"
+R=~/work/hermes-certification-assistant; S=certification/<скилл>; H="$HERMES_HOME/skills/$S"
 git -C "$R" fetch --all --prune -q
 diff -u "$R/skills/$S/SKILL.md" "$H/SKILL.md" | grep '^-' | grep -v '^---' | wc -l
 diff -u "$R/skills/$S/SKILL.md" "$H/SKILL.md" | grep '^-' | grep -v '^---' | cut -c1-110
