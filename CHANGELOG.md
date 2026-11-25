@@ -5,7 +5,7 @@
 
 ## Unreleased
 
-- 2026-11-25 — check-prep-info: новый скилл проверки PREP.INFO (пункты 2.1–6.5 без 6.3, сверка с ЭД, README с назначением, вызовом и входом, инвентаризация входа `scripts/check_inputs.py`); profile-contribution: публикация без токена и порядок обновления профиля при неопубликованной правке; hermes-agent-notes: справка про автозапуск systemd (BarniKviks)
+- 2026-11-25 — prep-info-check-report: новый скилл проверки PREP.INFO (пункты 2.1–6.5 без 6.3, сверка с ЭД, README с назначением, вызовом и входом, инвентаризация входа `scripts/check_inputs.py`); profile-contribution: публикация без токена и порядок обновления профиля при неопубликованной правке; hermes-agent-notes: справка про автозапуск systemd (BarniKviks)
 
 ## 1.32.0 — 2026-11-25
 

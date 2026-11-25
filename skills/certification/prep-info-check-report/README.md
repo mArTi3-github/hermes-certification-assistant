@@ -1,4 +1,4 @@
-# check-prep-info — проверка PREP.INFO
+# prep-info-check-report — проверка PREP.INFO
 
 Скилл проверяет PREP.INFO — документ подготовки информации об изделии, который разработчик
 передаёт на сертификацию. Проверяется сам документ и его сходимость с
@@ -48,10 +48,10 @@ PREP.INFO, и приёмку не блокируют.
 Явно, если нужно назвать именно этот скилл:
 
 ```
-вызови скилл check-prep-info
+вызови скилл prep-info-check-report
 ```
 
-Полное имя с категорией — `certification/check-prep-info`.
+Полное имя с категорией — `certification/prep-info-check-report`.
 
 ## Что нужно на входе
 
