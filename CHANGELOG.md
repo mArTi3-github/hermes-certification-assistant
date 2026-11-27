@@ -5,6 +5,8 @@
 
 ## Unreleased
 
+- 2026-11-27 — dist-fuzz: проверка инструментов, триаж «исходники → стенд», HTML-комплект; stand-ftest и stand-ftest-check-report — инструменты; check-report-paths читает HTML (mArTi3-github)
+
 ## 1.34.0 — 2026-11-27
 
 - 2026-11-27 — dist-fuzz: обезличен (пример Keycloak вынесен в references), грабли

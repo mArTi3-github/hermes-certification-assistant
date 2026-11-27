@@ -16,7 +16,7 @@ ap = argparse.ArgumentParser(description="Markdown-отчёт -> автоном�
 ap.add_argument("src")
 ap.add_argument("dst", nargs="?")
 ap.add_argument("--kicker", default="Проверка материалов фаззинг-тестирования · Методика ВУ")
-ap.add_argument("--footer", default="Отчёт сформирован автоматически по материалам архива <code>sflow-28.1-cert.zip</code>; все числовые значения получены разбором файлов материалов (fuzzer_stats, plot_data, журналы фаззеров, HTML-отчёты gcovr, образцы зависаний), а не перенесены из сопроводительного Readme.")
+ap.add_argument("--footer", default="Отчёт сформирован автоматически по материалам комплекта; числовые значения получены разбором первичных артефактов, а не перенесены из сопроводительного документа. Имя архива подставляется через --footer.")
 a = ap.parse_args()
 SRC = a.src
 DST = a.dst or (os.path.splitext(SRC)[0] + ".html")

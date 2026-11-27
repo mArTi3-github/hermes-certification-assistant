@@ -1,7 +1,7 @@
 ---
 name: dist-fuzz-check-report
 description: Проверка материалов фаззинг-тестирования по Методике ВУ.
-version: 1.0.0
+version: 1.0.1
 author: Hermes Agent
 license: MIT
 platforms: [linux, macos]

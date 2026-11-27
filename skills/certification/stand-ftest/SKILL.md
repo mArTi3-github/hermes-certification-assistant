@@ -1,7 +1,7 @@
 ---
 name: stand-ftest
 description: "Тестовая документация ФСТЭК: чтение, написание, обновление."
-version: 1.10.0
+version: 1.11.0
 author: Hermes Agent
 license: MIT
 platforms: [linux, macos, windows]
@@ -39,6 +39,26 @@ metadata:
 - Не для: проверки чужих материалов — это парный скилл `stand-ftest-check-report`
   (структура, прослеживаемость, свидетельства, вердикты); здесь — исполнение проверок
   и сборка отчёта.
+
+## Инструменты
+
+Набор у коллег разный, поэтому проверяется по факту, а не предполагается: `python3` (скрипты
+скилла и `python-docx` для чтения/сборки `.docx`), `soffice` из LibreOffice (PDF-рендер для
+визуальной проверки), `unzip` (разбор пакета документа). Для скриншотов — браузер или
+инструмент снятия экрана, которым пользуется исполнитель.
+
+```bash
+for t in python3 soffice unzip; do printf '%-8s %s
+' "$t" "$(command -v "$t" || echo '— нет')"; done
+python3 -c "import docx; print('python-docx', docx.__version__ if hasattr(docx,'__version__') else 'ok')"
+```
+
+Чего нет — назвать списком, предложить установку и спросить разрешение (`sudo` меняет чужую
+машину): `sudo apt-get install -y libreoffice-writer unzip` (Debian/Ubuntu) либо
+`brew install --cask libreoffice` (macOS). `python-docx` ставится
+`python3 -m pip install python-docx` в venv, а не в системный интерпретатор. Если инструмент
+поставить нельзя — сказать, какая часть работы останется непроверенной (например, «PDF-рендер
+не снимался, вёрстка проверена только по XML»), а не выдавать чтение XML за визуальный контроль.
 
 ## Процедура: прочитать отчёт
 
