@@ -5,7 +5,12 @@
 
 ## Unreleased
 
-- 2026-11-27 — dist-fuzz: обезличен, грабли в references, раздел «локально или ВМ»; переименованы check-report скиллы по схеме; новый stand-ftest-check-report (mArTi3-github)
+- 2026-11-27 — dist-fuzz: обезличен (пример Keycloak вынесен в references), грабли
+  в `references/pitfalls.md`, раздел «локально или отдельная ВМ»; скиллы проверок переименованы
+  по схеме `<проверка>-check-report`: dist-fuzz-check-report, dist-tst-check-report,
+  src-dep-check-report (старые имена сняты); новый stand-ftest-check-report; prep-info-check-report —
+  ссылки на новые имена; stand-ftest — описание и указатель на парный скилл; profile-audit,
+  profile-contribution (схема имён), skill-refine — правки; README: таблица скиллов (mArTi3-github)
 
 ## 1.33.2 — 2026-11-26
 
