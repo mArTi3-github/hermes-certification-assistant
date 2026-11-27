@@ -1,18 +1,21 @@
 #! /usr/bin/env python3
 """Сверяет упоминания файлов в отчёте с раскладкой сдаваемого комплекта.
 
-Запуск:  check-report-paths.py <корень комплекта> <report.md>
+Запуск:  check-report-paths.py <корень комплекта> <report.md | report.html>
 
 Корень комплекта — каталог, где лежат report.md и подкаталог evidence/build/.
+Пути берутся и из markdown-спанов (`...`), и из HTML (`<code>...</code>`), поэтому одна
+и та же проверка годится для report.md и для собранного из него report.html.
 Скрипт не правит отчёт: он перечисляет упоминания, которые не удалось разрешить
 (настоящие битые пути — ошибка, шаблоны `<цель>`, `*`, `{a,b}`, `…` и имена методов
 пропускаются молча). Код возврата 1 — есть битый путь, начинающийся с `evidence/`.
 """
+import html as html_mod
 import os
 import re
 import sys
 
-SPAN = re.compile(r"`([^`\n]+)`")
+SPAN = re.compile(r"`([^`\n]+)`|<code>(.*?)</code>")
 SKIP = re.compile(r"[*{}<>…\s]|\.\.\.")
 PATHY = re.compile(r"/|\.[A-Za-z0-9]{1,6}$")
 MOUNT = "evidence/build"
@@ -34,6 +37,9 @@ def resolve(text, manifest, roots):
     t = text.strip()
     if not t or SKIP.search(t):
         return None
+    # сам корень архива — законное упоминание, в манифест он не попадает
+    if t.rstrip("/") == MOUNT:
+        return True
     tries = []
     if t.startswith(MOUNT + "/"):
         tries.append(("rel", t[len(MOUNT) + 1:]))
@@ -65,9 +71,11 @@ def main():
     manifest = manifest_of(archive)
     roots = {n for n in ("report.md", "report.html", "findings.md", "collections.md", "README.md")
              if os.path.exists(os.path.join(root, n))}
-    text = open(report, encoding="utf-8").read()
+    # HTML-экранирование (`&lt;цель&gt;`) иначе прячет шаблоны от фильтра
+    text = html_mod.unescape(open(report, encoding="utf-8").read())
     total, broken, skipped = 0, [], 0
-    for span in SPAN.findall(text):
+    for m in SPAN.finditer(text):
+        span = m.group(1) or m.group(2)
         if not PATHY.search(span.strip()) or span.startswith(("http", "/", "sha256")):
             continue
         total += 1
