@@ -5,6 +5,8 @@
 
 ## Unreleased
 
+## 1.35.0 — 2026-11-27
+
 - 2026-11-27 — dist-fuzz: проверка инструментов окружения (`references/toolchain.md`),
   триаж «сначала исходники, стенд по необходимости» (`references/triage.md`), итоговый комплект
   с HTML-отчётом; stand-ftest и stand-ftest-check-report — блоки про инструменты;
