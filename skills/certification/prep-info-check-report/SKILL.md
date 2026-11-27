@@ -1,7 +1,7 @@
 ---
 name: prep-info-check-report
 description: "Проверка PREP.INFO по пунктам; нужны руководства (ЭД)."
-version: 1.2.0
+version: 1.2.1
 author: Hermes Agent
 license: MIT
 platforms: [linux, macos, windows]
@@ -9,7 +9,7 @@ metadata:
   hermes:
     tags: [fstek, certification, prep-info, review, ed, pdf, report, html]
     category: certification
-    related_skills: [dist-tst-report-check, dist-fuzz-report-check, src-dep-report-check, stand-ftest]
+    related_skills: [dist-tst-check-report, dist-fuzz-check-report, src-dep-check-report, stand-ftest]
     requires_tools: [terminal, read_file, write_file, patch, browser_exec]
 ---
 
@@ -387,7 +387,7 @@ python3 scripts/check_inputs.py <каталог с материалами>
 ## Сборка итогового отчёта
 
 Когда пункты пройдены, отчёт собирается по образцу DIST.TST/DIST.FUZZ: `.md` + автономный
-HTML тем же генератором (`dist-fuzz-report-check/scripts/md_report_to_html.py`, флаги
+HTML тем же генератором (`dist-fuzz-check-report/scripts/md_report_to_html.py`, флаги
 `--kicker`/`--footer`). Структура: шапка 6–7 строк `**Метка:** значение` (объект,
 SHA-256, ЭД, объём, дата) → «Проверяемые требования» → «Итог»
 (таблица «пункт / вердикт / основание») → «Проверка по пунктам» (Требование →

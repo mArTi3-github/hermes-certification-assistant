@@ -241,7 +241,7 @@ def nvd_intervals(cve: str, cache_dir: Path, force: bool = False):
         except json.JSONDecodeError:
             pass
     url = f"https://services.nvd.nist.gov/rest/json/cves/2.0?cveId={cve}"
-    req = urllib.request.Request(url, headers={"User-Agent": "src-dep-report-check/2.0"})
+    req = urllib.request.Request(url, headers={"User-Agent": "src-dep-check-report/2.0"})
     for attempt in (1, 2):
         wait = 6.5 - (time.time() - _LAST_CALL[0])
         if wait > 0:

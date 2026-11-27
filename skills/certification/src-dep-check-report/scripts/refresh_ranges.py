@@ -5,7 +5,7 @@
 он же переиспользуется при следующем отчёте с теми же CVE.
 
 NVD без ключа пускает 5 запросов за 30 секунд, поэтому запросы идут с паузой через
-`srcdep_lib.nvd_intervals` (кэш `~/.cache/src-dep-report-check`). На отчёт с 70+ CVE — несколько
+`srcdep_lib.nvd_intervals` (кэш `~/.cache/src-dep-check-report`). На отчёт с 70+ CVE — несколько
 минут: запускать в фоне (`terminal(background=true, notify=True)`), а не в foreground-таймауте.
 
     python3 refresh_ranges.py <отчёт.xlsx> [--force]
@@ -27,7 +27,7 @@ def main():
     ap = argparse.ArgumentParser()
     ap.add_argument("source")
     ap.add_argument("--force", action="store_true", help="перезапросить уже закэшированные CVE")
-    ap.add_argument("--cache-dir", default=str(Path.home() / ".cache" / "src-dep-report-check"))
+    ap.add_argument("--cache-dir", default=str(Path.home() / ".cache" / "src-dep-check-report"))
     a = ap.parse_args()
 
     src = Path(a.source).expanduser()

@@ -20,7 +20,7 @@
 
 ## Осталось открытым
 
-- `dist-tst-report-check/SKILL.md` — каталог `~/work/fuzzcheck/<продукт>-tst-<ГГГГ-ММ>` против
+- `dist-tst-check-report/SKILL.md` — каталог `~/work/fuzzcheck/<продукт>-tst-<ГГГГ-ММ>` против
   конвенции `$TMPDIR/<подпапка>`: нет решения, нужен выбор владельца.
 - `profile-contribution/references/github-publication.md` — 12 машинно-локальных путей: переносимы
   ли они, зависит от раскладки машин у коллег.

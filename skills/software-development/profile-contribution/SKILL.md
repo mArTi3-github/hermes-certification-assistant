@@ -1,7 +1,7 @@
 ---
 name: profile-contribution
 description: "Публикация и скачивание обновлений профиля через агента."
-version: 1.24.0
+version: 1.25.0
 author: mArTi3-github
 license: MIT
 platforms: [linux, macos]

@@ -1,7 +1,7 @@
 ---
-name: dist-tst-report-check
+name: dist-tst-check-report
 description: Проверка материалов модульного тестирования по Методике ВУ.
-version: 1.8.1
+version: 1.0.0
 author: Hermes Agent
 license: MIT
 platforms: [linux, macos]
@@ -9,7 +9,7 @@ metadata:
   hermes:
     tags: [fstek, certification, unit-tests, coverage, junit, методика-ву, appsec, review]
     category: certification
-    related_skills: [dist-fuzz-report-check, stand-ftest]
+    related_skills: [dist-fuzz-check-report, stand-ftest]
 ---
 
 # Проверка материалов модульного тестирования (комплект DIST.TST)
@@ -21,7 +21,7 @@ metadata:
 (Методика ВУ): ПОД.2 усиления 1–2, ДАО общие требования, ДАО.1 и усиления 1–5.
 
 Скилл проверяет материалы, а не проводит тестирование. Главный принцип тот же,
-что в `dist-fuzz-report-check`: **все числа считать из первичных
+что в `dist-fuzz-check-report`: **все числа считать из первичных
 артефактов** (`junit.xml`, журналы прогонов, `coverage-summary.csv/json`,
 `lcov.info`, `failures.csv`, `rerun/`, `causes/`), а не переписывать из
 `readme.txt`. Readme — заявление стороны, его проверяют.
@@ -86,7 +86,7 @@ metadata:
 - Сторонние компоненты в комплекте не тестировались: README утверждает, что
   версии совпадают с другим продуктом и результаты можно переиспользовать.
 - Не для: проведения самих тестов; фаззинга — это
-  `dist-fuzz-report-check`.
+  `dist-fuzz-check-report`.
 
 ## Prerequisites
 
@@ -105,7 +105,7 @@ metadata:
 ## Quick Reference
 
 ```bash
-S=~/.hermes/profiles/<профиль>/skills/certification/dist-tst-report-check/scripts
+S=~/.hermes/profiles/<профиль>/skills/certification/dist-tst-check-report/scripts
 
 # 1) инвентаризация: dataset.json + сводная таблица (компоненты находятся сами)
 python3 $S/tst_dataset.py <каталог материалов>
@@ -122,7 +122,7 @@ python3 $S/package_audit.py <каталог> --threshold 25
 
 # 5) MD -> автономный HTML (общий генератор с DIST.FUZZ; путь считается от $S,
 #    поэтому имя профиля и каталог установки значения не имеют)
-python3 "$(dirname "$S")/../dist-fuzz-report-check/scripts/md_report_to_html.py" <отчёт>.md \
+python3 "$(dirname "$S")/../dist-fuzz-check-report/scripts/md_report_to_html.py" <отчёт>.md \
   --kicker "Проверка материалов модульного тестирования · Методика ВУ" \
   --footer "Заключение от <ДД.ММ.ГГГГ>; все числа получены пересчётом артефактов комплекта."
 
