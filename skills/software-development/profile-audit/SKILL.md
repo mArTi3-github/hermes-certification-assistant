@@ -1,7 +1,7 @@
 ---
 name: profile-audit
 description: "Аудит противоречий в материалах профиля с вопросами."
-version: 1.1.0
+version: 1.1.1
 author: mArTi3-github, Hermes Agent
 license: MIT
 platforms: [linux, macos]

@@ -1,7 +1,7 @@
 ---
 name: stand-ftest
-description: "Тестовая документация ФСТЭК: чтение, написание, проверка."
-version: 1.9.0
+description: "Тестовая документация ФСТЭК: чтение, написание, обновление."
+version: 1.10.0
 author: Hermes Agent
 license: MIT
 platforms: [linux, macos, windows]
@@ -9,7 +9,7 @@ metadata:
   hermes:
     tags: [fstek, certification, security-functions, testing, docx, e2e, appsec]
     category: certification
-    related_skills: [docx, dogfood, grounded-citations, hermes-agent-notes]
+    related_skills: [stand-ftest-check-report, docx, dogfood, grounded-citations, hermes-agent-notes]
 ---
 
 # Тестовая документация ФСТЭК (функции безопасности)
@@ -36,6 +36,9 @@ metadata:
 - Нужно сдать сводку по прогону: какие проверки пройдены, какие нет и почему
   (отдельный Markdown-файл рядом с отчётом).
 - Не для: чтения произвольных `.docx` — это скилл `docx`.
+- Не для: проверки чужих материалов — это парный скилл `stand-ftest-check-report`
+  (структура, прослеживаемость, свидетельства, вердикты); здесь — исполнение проверок
+  и сборка отчёта.
 
 ## Процедура: прочитать отчёт
 

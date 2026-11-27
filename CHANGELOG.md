@@ -5,6 +5,8 @@
 
 ## Unreleased
 
+- 2026-11-27 — dist-fuzz: обезличен, грабли в references, раздел «локально или ВМ»; переименованы check-report скиллы по схеме; новый stand-ftest-check-report (mArTi3-github)
+
 ## 1.33.2 — 2026-11-26
 
 - 2026-11-26 — profile-contribution: sync.sh --force снимает дельту всех неопубликованных скиллов — копировать каталоги всех ≠ перед синхронизацией (mArTi3-github)

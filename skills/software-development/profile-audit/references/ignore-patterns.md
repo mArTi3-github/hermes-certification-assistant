@@ -30,7 +30,7 @@ paths.*profile-audit/references/methodology\.md
 # Историческая запись: путь относится к прошлой версии, а не к текущей раскладке.
 paths.*CHANGELOG\.md
 # Правила размещения файлов: ~ и $TMPDIR переносимы, подпапку задаёт сам скилл.
-Машинно-локальные пути.*certification/(stand-ftest|dist-tst-report-check|dist-fuzz-report-check)/SKILL\.md
+Машинно-локальные пути.*certification/(stand-ftest|dist-tst-check-report|dist-fuzz-check-report)/SKILL\.md
 # Штатный (bundled) скилл: правится апстримом; заглушки вида tools/<файл>.py в его reference — не наши пути.
 paths.*hermes-agent/(SKILL\.md|references/)
 terminology.*hermes-agent/(SKILL\.md|references/)
