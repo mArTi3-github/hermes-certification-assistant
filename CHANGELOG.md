@@ -5,6 +5,8 @@
 
 ## Unreleased
 
+## 1.34.0 — 2026-11-27
+
 - 2026-11-27 — dist-fuzz: обезличен (пример Keycloak вынесен в references), грабли
   в `references/pitfalls.md`, раздел «локально или отдельная ВМ»; скиллы проверок переименованы
   по схеме `<проверка>-check-report`: dist-fuzz-check-report, dist-tst-check-report,
