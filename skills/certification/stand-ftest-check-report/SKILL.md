@@ -1,7 +1,7 @@
 ---
 name: stand-ftest-check-report
 description: "Проверка тестовой документации ФСТЭК (приказ № 76)."
-version: 1.2.0
+version: 1.2.1
 author: Hermes Agent
 license: MIT
 platforms: [linux, macos, windows]
@@ -49,7 +49,7 @@ metadata:
 заключении как блокирующее замечание.
 
 **Инструменты.** Нужны `python3` с `python-docx` (чтение документа скриптами штатного скилла
-`microsoft-office` и `certification/tools/docx-ordered`) и
+`microsoft-office` и `docx_read_ordered.py` из скилла `stand-ftest`) и
 `soffice` из LibreOffice (PDF-рендер страниц со свидетельствами); для разбора пакета — `unzip`.
 Проверяются до начала, и отсутствие называется сразу с предложением установки
 (`sudo apt-get install -y libreoffice-writer`, `python3 -m pip install python-docx` в venv) —
@@ -59,10 +59,11 @@ metadata:
 
 ## Процедура
 
-1. **Разбор документа — инструментами `microsoft-office` и `certification/tools/docx-ordered`.**
-   `docx_read.py file.docx --structure`, затем дамп текста
-   `docx_read_ordered.py file.docx > dump.txt` (абзацы и таблицы в порядке
-   документа), при необходимости `--start/--end` по разделу. Скриншоты —
+1. **Разбор документа — инструментами `microsoft-office` и `docx_read_ordered.py` из скилла
+   `stand-ftest`.** `docx_read.py file.docx --structure`, затем дамп текста (`S` — каталог
+   этого скилла):
+   `python3 "$(dirname "$S")/../stand-ftest/scripts/docx_read_ordered.py" file.docx > dump.txt`
+   (абзацы и таблицы в порядке документа), при необходимости `--start/--end` по разделу. Скриншоты —
    `docx_read.py file.docx --images DIR/` и просмотр зрения на предмет «что реально
    на экране». Дамп сохраняется в файл: заключение ссылается на раздел/абзац/рисунок,
    а не на пересказ.

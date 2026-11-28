@@ -5,6 +5,8 @@
 
 ## Unreleased
 
+- 2026-11-28 — stand-ftest: docx_read_ordered.py в своих scripts/, отдельный скилл docx-ordered снят; stand-ftest-check-report: чтение через скрипт соседнего скилла; hermes-agent-notes: таймауты clarify и approvals; interview и profile-contribution — уточнения (mArTi3-github)
+
 ## 1.37.0 — 2026-11-28
 
 - 2026-11-28 — форк `productivity/docx` снят: `.docx` теперь делает штатный `microsoft-office`, а
