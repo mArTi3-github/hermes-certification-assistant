@@ -5,6 +5,8 @@
 
 ## Unreleased
 
+## 1.37.0 — 2026-11-28
+
 - 2026-11-28 — форк `productivity/docx` снят: `.docx` теперь делает штатный `microsoft-office`, а
   собственный инструмент — новый скилл `docx-ordered` (`docx_read_ordered.py`, чтение в порядке
   документа) в категории `certification/tools`; `stand-ftest` и `stand-ftest-check-report`
