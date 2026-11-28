@@ -5,6 +5,8 @@
 
 ## Unreleased
 
+## 1.38.0 — 2026-11-28
+
 - 2026-11-28 — `certification/tools/docx-ordered` снят: `docx_read_ordered.py` живёт в
   `stand-ftest/scripts/`, а `stand-ftest-check-report` вызывает его из соседнего скилла (как
   `dist-tst-check-report` берёт генератор у `dist-fuzz-check-report`); раздел README про `.docx`
