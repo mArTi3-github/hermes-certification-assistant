@@ -48,18 +48,40 @@ def version_at(ref: str, rel: str) -> str | None:
     return frontmatter_version(out) if code == 0 else None
 
 
+def skill_roots(ref: str) -> set[str]:
+    """Каталоги скиллов на коммите: любой уровень вложенности, где лежит `SKILL.md`.
+
+    Вложенность нужна служебным инструментам категории (`certification/tools/<имя>`),
+    которые политика публикации видит (обход `rglob("SKILL.md")`), а плоское правило
+    «категория/имя» видело как один скилл `certification/tools`.
+    """
+    code, out = git("ls-tree", "-r", "--name-only", ref, "--", "skills/")
+    if code != 0:
+        return set()
+    return {
+        str(Path(path).parent)[len("skills/"):]
+        for path in out.splitlines()
+        if path.endswith("/SKILL.md")
+    }
+
+
 def changed_skills(base: str, head: str) -> dict[str, set[str]]:
     code, out = git("diff", "--name-only", f"{base}...{head}", "--", "skills/")
     if code != 0:
         raise SystemExit(f"не удалось сравнить {base}...{head}")
+    roots = skill_roots(base) | skill_roots(head)
     skills: dict[str, set[str]] = {}
     for path in out.splitlines():
         parts = path.split("/")
-        if len(parts) < 4:
+        if len(parts) < 3 or parts[0] != "skills":
             continue
         if any(part in IGNORED for part in parts) or Path(path).suffix in IGNORED_SUFFIXES:
             continue
-        rel = "/".join(parts[1:3])
+        under = path[len("skills/"):]
+        owners = [root for root in roots if under.startswith(root + "/")]
+        if not owners:
+            continue  # файл вне каталога скилла (`skills/DESCRIPTION.md` и подобное)
+        rel = max(owners, key=len)  # самый глубокий каталог с SKILL.md — это и есть скилл
         skills.setdefault(rel, set()).add(path)
     return skills
 

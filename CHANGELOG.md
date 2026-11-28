@@ -5,7 +5,14 @@
 
 ## Unreleased
 
-- 2026-11-28 — profile-contribution: дельта от блоба апстрима, состояние + и код 3 после accept; docx-ordered: новый скилл с docx_read_ordered.py; stand-ftest и stand-ftest-check-report читают .docx через microsoft-office; форк productivity/docx снят; profile-audit: пример пути (mArTi3-github)
+- 2026-11-28 — форк `productivity/docx` снят: `.docx` теперь делает штатный `microsoft-office`, а
+  собственный инструмент — новый скилл `docx-ordered` (`docx_read_ordered.py`, чтение в порядке
+  документа) в категории `certification/tools`; `stand-ftest` и `stand-ftest-check-report`
+  переведены на него и на `microsoft-office`; `publish.list` и README приведены к новому составу,
+  `profile-audit` — пример пути в `references/interview.md`; `profile-contribution` — дельта от
+  блоба апстрима, состояние `+` и код 3 после `accept.py`; `tools/pr_policy.py` разбирает скилл
+  по каталогу с `SKILL.md` на любой глубине (вложенный `certification/tools/<имя>` больше не
+  читается как подкатегория), тест `tools/test_pr_policy.py` в CI (mArTi3-github)
 
 ## 1.36.0 — 2026-11-28
 
