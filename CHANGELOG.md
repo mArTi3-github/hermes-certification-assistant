@@ -5,6 +5,8 @@
 
 ## Unreleased
 
+- 2026-11-28 — profile-contribution: дельта от блоба апстрима, состояние + и код 3 после accept; docx-ordered: новый скилл с docx_read_ordered.py; stand-ftest и stand-ftest-check-report читают .docx через microsoft-office; форк productivity/docx снят; profile-audit: пример пути (mArTi3-github)
+
 ## 1.36.0 — 2026-11-28
 
 - 2026-11-28 — profile-contribution: три пункта ревью из ревизии профиля — смена договорённости

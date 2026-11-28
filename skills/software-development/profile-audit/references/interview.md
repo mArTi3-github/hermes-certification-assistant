@@ -42,7 +42,7 @@
 ```json
 {"ts": "2026-11-16T15:20:00+03:00", "fingerprint": "b51bc84509d971e7",
  "class": "stale", "check": "paths", "where": ["README.md:26"],
- "question": "Файл «scripts/docx_read_ordered.py» лежит в skills/productivity/docx. Исправить путь?",
+ "question": "Файл «scripts/report_common.py» лежит в skills/certification/stand-ftest. Исправить путь?",
  "answer": "да, путь от корня репозитория", "status": "resolved", "change": "README.md:26"}
 ```
 
