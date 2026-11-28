@@ -33,7 +33,7 @@ def manifest_of(base):
     return paths
 
 
-def resolve(text, manifest, roots):
+def resolve(text, manifest, roots, root=None):
     t = text.strip()
     if not t or SKIP.search(t):
         return None
@@ -52,9 +52,14 @@ def resolve(text, manifest, roots):
     else:
         tries.append(("rel", t))
         tries.append(("root", t))
+        tries.append(("fs", t))
     for kind, key in tries:
         key = key.strip()
-        if (kind == "rel" and key in manifest) or (kind == "root" and key in roots):
+        if kind == "rel" and key in manifest:
+            return True
+        if kind == "root" and key in roots:
+            return True
+        if kind == "fs" and root and os.path.exists(os.path.join(root, key)):
             return True
     return False
 
@@ -79,7 +84,7 @@ def main():
         if not PATHY.search(span.strip()) or span.startswith(("http", "/", "sha256")):
             continue
         total += 1
-        if resolve(span, manifest, roots):
+        if resolve(span, manifest, roots, root):
             continue
         if SKIP.search(span.strip()):
             skipped += 1
