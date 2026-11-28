@@ -1,7 +1,7 @@
 ---
 name: stand-ftest-check-report
 description: "Проверка тестовой документации ФСТЭК (приказ № 76)."
-version: 1.1.0
+version: 1.2.0
 author: Hermes Agent
 license: MIT
 platforms: [linux, macos, windows]
@@ -48,7 +48,8 @@ metadata:
 Если чего-то нет, проверка всё равно выполняется, а отсутствие фиксируется в
 заключении как блокирующее замечание.
 
-**Инструменты.** Нужны `python3` с `python-docx` (чтение документа скриптами скилла `docx`) и
+**Инструменты.** Нужны `python3` с `python-docx` (чтение документа скриптами штатного скилла
+`microsoft-office` и `certification/tools/docx-ordered`) и
 `soffice` из LibreOffice (PDF-рендер страниц со свидетельствами); для разбора пакета — `unzip`.
 Проверяются до начала, и отсутствие называется сразу с предложением установки
 (`sudo apt-get install -y libreoffice-writer`, `python3 -m pip install python-docx` в venv) —
@@ -58,7 +59,7 @@ metadata:
 
 ## Процедура
 
-1. **Разбор документа — инструментами скилла `docx`.**
+1. **Разбор документа — инструментами `microsoft-office` и `certification/tools/docx-ordered`.**
    `docx_read.py file.docx --structure`, затем дамп текста
    `docx_read_ordered.py file.docx > dump.txt` (абзацы и таблицы в порядке
    документа), при необходимости `--start/--end` по разделу. Скриншоты —
