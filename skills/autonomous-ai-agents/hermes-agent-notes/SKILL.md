@@ -1,7 +1,7 @@
 ---
 name: hermes-agent-notes
 description: "Дополнения к hermes-agent: контекст, доступ, шаринг."
-version: 1.0.2
+version: 1.1.0
 metadata:
   hermes:
     tags: [hermes, context, compression, remote-access, profiles, team]
@@ -32,6 +32,7 @@ Hermes перестают приезжать. Всё, чего нет в сто�
 | Долгоживущие скиллы: что куратор видит, защита от архивации отсутствием маркера `created_by` (не пином), где хранить правило, проверка | `references/skill-lifecycle-and-curator.md` + `scripts/verify_skill_pins.py` |
 | Кастомный/корпоративный провайдер: `providers.<id>` против `model.aliases`, ключ в `.env`, где он появляется в настройках клиента, проверка без UI, семантика переключения модели | `references/custom-provider-wiring.md` |
 | Прерванный ход: почему внизу ленты остаётся фраза-намерение, как отличить артефакт вёрстки от реально незавершённой работы | `references/interrupted-turn-display.md` |
+| Таймауты карточек: вопросы (`agent.clarify_timeout`) против подтверждений команд (`approvals.timeout`); что значит `0` у каждого, где это в Desktop, распознавание по симптому | `references/clarify-and-approval-timeouts.md` |
 
 ## Правила
 
@@ -49,3 +50,8 @@ Hermes перестают приезжать. Всё, чего нет в сто�
    фоновой ревизией; неуправляемому он не нужен и втягивает его в список кандидатов. Подробности —
    `references/skill-lifecycle-and-curator.md`. Правило, которое должно пережить работу куратора,
    пишется в `SOUL.md` профиля, а не в скилл.
+5. Пункт в настройках Desktop не доказывает, какой ключ он правит: сверять по
+   `hermes config get` и исходникам клиента (`apps/desktop/src/app/settings/constants.ts` — состав
+   вкладок). «Тайм-аут подтверждения» в разделе «Безопасность» — это `approvals.timeout`
+   (подтверждения команд), а не таймаут вопросов; `0` там — мгновенное истечение, а не «без
+   таймаута». Разбор двух ключей — `references/clarify-and-approval-timeouts.md`.
