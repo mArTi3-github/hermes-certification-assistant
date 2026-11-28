@@ -5,6 +5,8 @@
 
 ## Unreleased
 
+## 1.39.0 — 2026-11-28
+
 - 2026-11-28 — dist-fuzz: новые references и скрипты кампании, уточнения триажа; dist-fuzz-check-report: проверка знаменателя JaCoCo (mArTi3-github)
 
 ## 1.38.0 — 2026-11-28
