@@ -5,6 +5,13 @@
 
 ## Unreleased
 
+- 2026-11-28 — `certification/tools/docx-ordered` снят: `docx_read_ordered.py` живёт в
+  `stand-ftest/scripts/`, а `stand-ftest-check-report` вызывает его из соседнего скилла (как
+  `dist-tst-check-report` берёт генератор у `dist-fuzz-check-report`); раздел README про `.docx`
+  переписан под это; `hermes-agent-notes` — раздел про таймауты `clarify` и `approvals`
+  (`agent.clarify_timeout` и `approvals.timeout` — разные ключи, `0` у них значит разное);
+  `interview` и `profile-contribution` — уточнения по ходу разбора (mArTi3-github)
+
 ## 1.37.0 — 2026-11-28
 
 - 2026-11-28 — форк `productivity/docx` снят: `.docx` теперь делает штатный `microsoft-office`, а
