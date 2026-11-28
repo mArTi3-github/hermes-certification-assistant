@@ -62,3 +62,27 @@ JaCoCo на том же корпусе: 3653 класса проанализир
   в отчёт идут оба числа, с разными формулировками.
 - **Скрипт `coverage.sh` требует распакованных классов** (`classes-all`) для `jacococli report`;
   распаковка всех jar-ов в один каталог делается один раз.
+
+## Повторная кампания на 26.8.2: что меняется
+
+Тег `26.8.2` (коммит `e514445f9dcdabc5bdcf67cab56c1e49655de067`) собирается **теми же** скриптами,
+без правок: `mvn package` — `BUILD SUCCESS` за 1:31, все шесть харнессов компилируются без
+изменений (дрейфа API нет; коммит харнессов тот же — `8e95f89f`, каталог `projects/keycloak`
+не менялся с 2025-02-17). Продуктовые изменения, важные для триажа прошлых находок:
+
+- **SAML 1.1-парсеры выключены по умолчанию.** `SAMLParser` держит их за флагом
+  `saml11ParsersEnabled` (`enableSaml11Parsers()`), включает его `SamlService` при
+  `enableSaml11=true`, а `SamlProtocolFactory:121` читает эту настройку с дефолтом
+  `Boolean.FALSE`. Поэтому документ SAML 1.1 через `SAMLRequestParser` теперь не доходит до
+  SAML11-парсеров вообще («Unknown Start Element … Assertion»), а не зависает.
+- **Цикл в `SAML11ParserUtil.parseSAML11SubjectConfirmation` исправлен:** на событие, отличное
+  от `StartElement`/`EndElement`, бросается `ParsingException` («Unexpected XML Event Type»)
+  вместо повторного `peek`. Проверять надо оба уровня — и код, и дефолт настройки.
+- **`JWKParser` переписан с `JsonNode` на `RawJsonValue`**, но поведение на неполном JWK то же:
+  `createRSAPublicKey` → `Base64Url.decode(jwk.path("n").asText(null))` → NPE. Сигнатуры
+  прошлой кампании остаются в силе; номера строк сдвинулись, сверять по методу, а не по строке.
+- **Доказательство закрытия дефекта — прогон входов, а не пустой `hangs/`.** Один вход через
+  функцию продукта (26.5.2 — 30 с без ответа, 26.8.2 — 381 мс) плюс весь набор `hangs/`
+  прошлой кампании, долитый в корпус: 729 входов, 0 таймаутов (`references/corpus-carryover.md`).
+- Цифры пилота на 60 с для ориентира: `SamlParser` cov 384, `Jwk` 52, `KeycloakUriBuilder` 342,
+  `Jose` 81, `TokenVerifier` 137, `SamlValidationUtil` 291; 18 детекторов Jazzer, 23 источника хуков.
